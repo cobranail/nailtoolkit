@@ -1,0 +1,36 @@
+global proc matchUV(){
+	string $mbwindow= `window -sizeable false -title "MatchUV"`;
+	columnLayout -columnAttach "both" 5 -rowSpacing 2 -columnWidth 200;
+
+	button -w 200 -label "match uv+bounding del src" -command "matchBoundingUV(0)";
+	button -w 200 -label "match uv+bounding del dest" -command "matchBoundingUV(1)";
+		button -label "match uv component" -command "matchUVcomponent()";
+	setParent ..;
+	showWindow $mbwindow;
+}
+
+global proc matchBoundingUV(int $type){ //make src's boundingbox match dest's boundingbox, then transfer uvs.
+	string $objs[] = `ls -sl`;
+	Unparent;
+	select -cl;
+	float $src_box[]=`exactWorldBoundingBox $objs[0]`;
+	float $dest_box[]=`exactWorldBoundingBox $objs[1]`;
+	select $objs[0];
+	CenterPivot;
+	FreezeTransformations;
+	scale -a (($dest_box[3]-$dest_box[0])/($src_box[3]-$src_box[0])) (($dest_box[4]-$dest_box[1])/($src_box[4]-$src_box[1])) (($dest_box[5]-$dest_box[2])/($src_box[5]-$src_box[2]));
+	float $src_box[]=`exactWorldBoundingBox $objs[0]`;
+	move -a -ws ($dest_box[0]-$src_box[0]) ($dest_box[1]-$src_box[1]) ($dest_box[2]-$src_box[2]);
+	select $objs[0] $objs[1];
+	FreezeTransformations;
+	transferAttributes -transferUVs 2 -sampleSpace 0 $objs[0] $objs[1];
+	DeleteHistory;
+	if($type == 0)	delete $objs[0];
+	if($type == 1) delete $objs[1];
+}
+
+global proc matchUVcomponent(){
+	string $objs[] = `ls -sl`;
+	transferAttributes -transferUVs 2 -sampleSpace 4 $objs[0] $objs[1];
+	select $objs[1];
+}

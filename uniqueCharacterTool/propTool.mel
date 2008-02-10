@@ -1,0 +1,178 @@
+/***ver 0.0.3***/
+
+global proc matchData(string $groupName,string $suffix){
+	
+	string $buffer=" ";
+	string $controllerList[];
+	float $tx[],$ty[],$tz[],$rx[],$ry[],$rz[];
+	string $tempBuffer[];
+	
+	int $i=0;
+	string $fGroupName=`substitute $suffix $groupName ""`;
+
+	$dataFile=(`internalVar -userTmpDir` + $fGroupName+"_modifier.txt");
+	$fileID=`fopen $dataFile "r"`;
+	
+	$buffer=`fgetline $fileID`;
+	
+	while(`size $buffer`>0){
+
+		tokenize($buffer,$tempBuffer);
+		$controllerList[$i]=$tempBuffer[0];
+	
+		$tx[$i]=($tempBuffer[1]);
+		$ty[$i]=($tempBuffer[2]);
+		$tz[$i]=($tempBuffer[3]);
+		$rx[$i]=($tempBuffer[4]);
+		$ry[$i]=($tempBuffer[5]);
+		$rz[$i]=($tempBuffer[6]);
+		
+		if(`objExists ($suffix+$controllerList[$i])`){
+		
+			select -r ($suffix+$controllerList[$i]);
+			setAttr .translateX $tx[$i];
+			setAttr .translateY $ty[$i];
+			setAttr .translateZ $tz[$i];
+			setAttr .rotateX $rx[$i];
+			setAttr .rotateY $ry[$i];
+			setAttr .rotateZ $rz[$i];
+			
+		}
+		
+		$i++;
+		$buffer=`fgetline $fileID`;
+		
+	}
+	fclose $fileID;
+	
+	
+}
+
+
+global proc bindToHand(string $handElem[],string $objElem[],string $controller){
+
+	string $nameBuffer=`substitute ":" $handElem[1] "_"`;
+	
+	addAttr -longName ($nameBuffer) -attributeType double -keyable true $controller;
+
+
+	string $buffer;
+
+	string $oc[]=`orientConstraint -weight 0 $objElem[0] $handElem[0]`;
+	string $pc[]=`pointConstraint -weight 0 $handElem[0] $objElem[0]`;
+	string $pc2[]=`pointConstraint -weight 0 $objElem[1] $handElem[1]`;
+
+
+	setAttr ($oc[0]+".enableRestPosition") 0;
+	setAttr ($pc[0]+".enableRestPosition") 0;
+	setAttr ($pc2[0]+".enableRestPosition") 0;
+
+	select -cl;
+
+	int $i,$j,$k;
+	
+	string $weightList1[]=`pointConstraint -q -wal $pc[0]`;
+	string $weightList2[]=`orientConstraint -q -wal $oc[0]`;
+	string $weightList3[]=`pointConstraint -q -wal $pc2[0]`; //hand manip pos
+
+	$i=(`size $weightList1`)-1;
+	$j=(`size $weightList2`)-1;
+	$k=(`size $weightList3`)-1;
+	
+		
+	$buffer="\""+$pc2[0]+"."+$weightList3[$k]+ "=" +$controller+"."+$nameBuffer+";\n"+$pc[0]+"."+$weightList1[$i]+ "=" +$controller+"."+$nameBuffer+";\n"+$oc[0]+"."+$weightList2[$j]+"="+$controller+"."+$nameBuffer+"\"";
+	
+	print $buffer;
+
+	expression  -s $buffer;
+}
+
+
+global proc propTool(string $prefix){
+
+	string $objects[]=`ls -sl`;
+
+	string $suffixBuffer[];
+	tokenize $objects[0] ":" $suffixBuffer;
+	string $suffixObject=$suffixBuffer[0]+":";
+	tokenize $objects[1] ":" $suffixBuffer;
+	string $suffixActor=$suffixBuffer[0]+":";	
+
+	int $handIndex=1;
+	
+	//read relationship
+	string $fObjName=`substitute $suffixObject $objects[0] ""`;
+	$dataFile=(`internalVar -userTmpDir` + $prefix+"_"+$fObjName+"_relationship.txt");
+	$fileID=`fopen $dataFile "r"`;
+	
+	$i=0;
+	
+	$buffer=`fgetline $fileID`;
+	string $tempBuffer[];
+	string $handMatcher[];
+	string $objectMatcher[];
+	while(`size $buffer`>0){
+
+		tokenize($buffer,$tempBuffer);
+		$controller=$tempBuffer[0];
+
+		//match modifier's translation
+		matchData($prefix+"_"+$controller,$suffixObject);
+		matchData($prefix+"_"+$objects[$handIndex],$suffixActor);
+
+		//read Controller matcher
+		$dataObjectMatcher=(`internalVar -userTmpDir` + $prefix+"_"+$controller+"_matcher.txt");
+		$fileObjectMatcherID= `fopen $dataObjectMatcher "r"`;
+			
+			$buffer1=`fgetline $fileObjectMatcherID`;
+			tokenize($buffer1,$tempBuffer);
+			$objectMatcher[0]=($suffixObject+$tempBuffer[0]);
+
+			$buffer1=`fgetline $fileObjectMatcherID`;
+			tokenize($buffer1,$tempBuffer);
+			$objectMatcher[1]=($suffixObject+$tempBuffer[0]);
+
+
+
+		fclose $fileObjectMatcherID;
+		print $dataObjectMatcher;
+		print "\n";
+		print $objectMatcher;
+		print "========\n";
+		//read hand matcher
+
+		string $fObjName=`substitute $suffixActor $objects[$handIndex] ""`;
+		$dataHandMatcher=(`internalVar -userTmpDir` + $prefix+"_"+$fObjName+ "_matcher.txt");
+		$fileHandMatcherID= `fopen $dataHandMatcher "r"`;
+
+		
+
+			$buffer2=`fgetline $fileHandMatcherID`;
+			tokenize($buffer2,$tempBuffer);
+			$handMatcher[0]=($suffixActor+$tempBuffer[0]);
+
+			$buffer2=`fgetline $fileHandMatcherID`;
+			tokenize($buffer2,$tempBuffer);
+			$handMatcher[1]=($suffixActor+$tempBuffer[0]);
+			
+
+		fclose $fileHandMatcherID;
+		print $dataHandMatcher;
+
+		print "\n";
+		print $handMatcher;
+		print "========\n";
+
+		string $suffixController=$suffixObject+$controller;
+		
+		bindToHand($handMatcher,$objectMatcher,$suffixController);
+
+		
+		$i++;
+		$buffer=`fgetline $fileID`;
+		$handIndex++;
+	}
+	fclose $fileID;	
+
+}
+
