@@ -1,0 +1,264 @@
+//0.1
+//0.2
+//0.3 rewrite all.
+//0.4 rewrite toolbar,add camera selector
+
+global proc nailShelf(){
+
+int $i=0;
+
+if(!`optionVar -exists "var_nailShelfTab"`) {
+
+	optionVar -sv "var_nailShelfTab" "creation";
+	optionVar -sva "var_nailShelfTab" "motion";
+	optionVar -sva "var_nailShelfTab" "misc";
+	
+}
+
+global string $nsCameraOptionMenu;
+global int $nsIsolateSelect;
+$nsIsolateSelect=0;
+string $nailShelfTab[]=`optionVar -q "var_nailShelfTab"`;
+
+if (`window -ex nailShelfWindow`)
+	showWindow nailShelfWindow;
+else{
+window -w 220 -h 480 -s 0 -rtf 0 -title "Nail Shelf" nailShelfWindow;
+	columnLayout -rs 2 -co "both" 5;
+		columnLayout;
+			string $bform = `formLayout -h 20 -w 220`;
+			
+			
+				//string $img1=`iconTextButton -w 7 -h 26 -image "openBar.xpm"`;	
+				string $img2=`iconTextButton -w 7 -h 20 -image "openBar.xpm" -command "nailCameraList($nsCameraOptionMenu)"`;
+				//string $img3=`iconTextButton -w 7 -h 26 -image "openBar.xpm"`;	
+				//string $img4=`iconTextButton -w 7 -h 26 -image "openBar.xpm"`;	
+				
+					
+				string $itb1=`iconTextButton -h 20 -w 20 -label "vtx" -image "pickPointComp2.xpm" -command "changeSelectMode -component;setComponentPickMask \"Point\" true;"`;
+				string $itb2=`iconTextButton -h 20 -w 20 -label "uv" -image "pickPointComp.xpm"  -command "changeSelectMode -component;setComponentPickMask \"ParmPoint\" true;"`;
+				string $itb3=`iconTextButton -h 20 -w 20 -label "edge" -image "pickLineComp.xpm"  -command "changeSelectMode -component;setComponentPickMask \"Line\" true;"`;
+				string $itb4=`iconTextButton -h 20 -w 20 -label "facet" -image "pickFacetComp.xpm"  -command "changeSelectMode -component;setComponentPickMask \"Facet\" true;"`;
+				string $itb5=`iconTextButton -h 20 -w 20 -label "obj" -image "pickObjByType.xpm" -command "changeSelectMode -object"`;
+				
+				string $itb6=`iconTextButton -h 20 -w 20 -label "store" -image "save.xpm" -command "nailSaveShelf(\"nailShelfCommon\")"`;
+				$nsCameraOptionMenu=`optionMenu -w 70`;
+				setParent ..;
+									
+				
+				formLayout -edit
+		
+					-attachControl    $itb1 "right"   0 $itb2
+					-attachControl    $itb2 "right"   0 $itb3
+					-attachControl    $itb3 "right"   0 $itb4
+					-attachControl    $itb4 "right"   0 $itb5 
+					-attachControl    $itb5 "right"   5 $img2
+					-attachControl    $img2 "right"   8 $nsCameraOptionMenu
+					-attachControl    $nsCameraOptionMenu "right"  3 $itb6
+					-attachForm       $nsCameraOptionMenu "top" 0
+					-attachForm	  $itb6 "right" 2 
+					
+				$bform;
+			shelfLayout -w 220 -h 120 nailShelfCommon;
+		setParent ..;
+		columnLayout -rs 2;
+			separator -h 2 -w 210;
+			shelfTabLayout
+			    -image "smallTrash.xpm"
+			    -imageVisible true nailShelfTab;
+
+			setParent ..; //shelfTab
+			//separator -h 2 -w 210;
+			frameLayout -bv 0 -lv 0 ;
+				rowColumnLayout -nc 3 -cw 1 70 -cw 2 70 -cw 3 70;
+					button -l "New" -c "nailNewShelf()";
+					button -l "Del" -c "nailDelShelf()";
+					//button -l "Rename";
+
+					button -l "Save" -c "nailSaveShelf(`shelfTabLayout -query -selectTab nailShelfTab`)";
+					//button -l "Edit";
+				setParent ..; //row
+			setParent ..; //frame
+			separator -h 2 -w 210;			
+	
+		setParent ..; //column
+	setParent ..;
+	
+	nailLoadShelf("nailShelfCommon");
+	for($i=0;$i<`size $nailShelfTab`;$i++){
+		
+		setParent nailShelfTab;
+		shelfLayout -w 220 -h 320 $nailShelfTab[$i];
+		nailLoadShelf($nailShelfTab[$i]);
+	}
+	nailCameraList($nsCameraOptionMenu);
+
+	
+showWindow;
+}
+
+}
+
+
+global proc nailAbout(){
+	
+	print "Scripted by LiuShengJie 2007-08-25\n cobranail@gmail.com\n";
+}
+
+global proc string nailPromptName(string $title){
+	
+	string $text;
+	string $result = `promptDialog
+	-title $title
+	-message "Enter Name:"
+	-button "OK" -button "Cancel"
+	-defaultButton "OK" -cancelButton "Cancel"
+	-dismissString "Cancel"`;
+	
+	if ($result == "OK") {
+		$text = `promptDialog -query -text`;
+	}
+	
+	return $text;
+	
+}
+
+
+global proc nailNewShelf(){
+	
+	
+	string $newShelf = nailPromptName("New Shelf ...");
+	if(`size $newShelf` > 0  && isValidString($newShelf, "([a-zA-Z]+)([a-zA-Z0-9_])*")) {
+		optionVar -sva "var_nailShelfTab" $newShelf;
+		setParent nailShelfTab;
+			shelfLayout -w 220 -h 240 $newShelf;
+	}	
+}
+
+
+global proc nailDelShelf(){
+	
+	
+	string $nailShelfTab[]=`optionVar -q "var_nailShelfTab"`;
+	if (`size $nailShelfTab` > 1) {
+		
+		string $delShelf = `shelfTabLayout -query -selectTab nailShelfTab`;
+		
+		string $comfirm=`confirmDialog -title "Confirm" -message ("Delete "+$delShelf+" shelf?")
+				-button "Yes" -button "Dismiss" -defaultButton "Dismiss"
+				-cancelButton "Dismiss" -dismissString "Dismiss"`;
+		
+		if($comfirm=="Yes") {
+			string $delShelfList[]= { $delShelf };
+			$nailShelfTab = stringArrayRemove($delShelfList,$nailShelfTab);
+			optionVar -rm "var_nailShelfTab";
+			
+			optionVar -sv "var_nailShelfTab" $nailShelfTab[0];
+			int $i;
+			for($i=1; $i<`size $nailShelfTab`; $i++) {
+			
+			optionVar -sva "var_nailShelfTab" $nailShelfTab[$i];
+			
+			}
+			
+			deleteUI $delShelf;
+		}
+		
+	}
+	else 
+		print "Only one shelf left! Can't delete it! \n";
+}
+
+
+global proc nailLoadShelf(string $shelfName){
+	
+	string $shelfFile=(`internalVar -upd`+$shelfName+".toolbox");
+	setParent $shelfName;
+	$fileID=`fopen $shelfFile "r"`;
+	string $shelfBtnCmd = `fgetline $fileID`;
+	
+	if(`shelfLayout -exists $shelfName`) {
+		
+		while ( size( $shelfBtnCmd ) > 0 ) {
+			eval $shelfBtnCmd;
+			$shelfBtnCmd = `fgetline $fileID`;
+		}
+		
+	}
+	else{
+		
+	}
+	fclose $fileID;
+}
+
+global proc nailSaveShelf(string $shelfName){
+	
+	string $shelfFile=(`internalVar -upd`+$shelfName+".toolbox");
+	//saveShelf $tab_name ($shelfFile);
+	string $aShelfButton;
+	string $shelfButtons[] = `shelfLayout -q -ca $shelfName`;
+	
+	$fileID=`fopen $shelfFile "w"`;
+	
+	
+	for($aShelfButton in $shelfButtons)
+	{
+		int $enableCommandRepeat = `shelfButton -q -enableCommandRepeat $aShelfButton`;
+		int $enable = `shelfButton -q -enable $aShelfButton`;
+		int $width = `shelfButton -q -width $aShelfButton`;
+		int $height = `shelfButton -q -height $aShelfButton`;
+		int $manage = `shelfButton -q -manage $aShelfButton`;
+		int $visible = `shelfButton -q -visible $aShelfButton`;
+		string $annotation = `shelfButton -q -annotation $aShelfButton`;
+		string $label = `shelfButton -q -label $aShelfButton`;
+		string $imageOverlayLabel = `shelfButton -q -imageOverlayLabel $aShelfButton`;
+		string $image1 = `shelfButton -q -image1 $aShelfButton`;
+		string $style = `shelfButton -q -style $aShelfButton`;
+		string $sourceType = `shelfButton -q -sourceType $aShelfButton`;
+		string $command = `shelfButton -q -command $aShelfButton`;
+		string $doubleClickCommand = `shelfButton -q -doubleClickCommand $aShelfButton`;
+		
+		string $a_parent=" -parent" + " \"" + $shelfName + "\"";
+		string $a_annotation = " -annotation" + " \""+`encodeString $annotation`+"\"";
+		string $a_label = " -label" + " \"" + `encodeString $label` + "\"";
+		string $a_imageOverlayLabel = " -imageOverlayLabel" + " \"" + `encodeString $imageOverlayLabel` + "\"";
+		string $a_image1 = " -image1" + " \"" + $image1 +"\"";
+		string $a_sourceType = " -sourceType" + " \"" + $sourceType + "\"";
+		string $a_command = " -command" + " \"" + `encodeString $command` + "\"";
+		string $a_doubleClickCmd = " -doubleClickCommand"+" \"" +`encodeString $doubleClickCommand` + "\"";
+		
+		
+		string $btn_cmd="shelfButton" + $a_annotation + $a_label + $a_imageOverlayLabel + $a_image1 + $a_sourceType + $a_command + $a_doubleClickCmd +";\n";
+		
+		fprint $fileID $btn_cmd;
+
+	}
+	
+	fclose $fileID;
+	
+}
+
+global proc nailCameraList(string $nsCamOM){
+	
+
+	string $cams_orth[]=`listCameras -o`;
+	string $cams_persp[]=`listCameras -p`;
+	appendStringArray($cams_persp, $cams_orth, `size $cams_orth`);
+	int $i;
+	
+	string $camListOld[]=`optionMenu -q -ill $nsCamOM`;
+	for($i=0;$i<`size $camListOld`;$i++){
+		deleteUI $camListOld[$i];
+	}
+	
+	for($i=0;$i<`size $cams_persp`;$i++){
+		menuItem  -p $nsCamOM -label $cams_persp[$i] -command "print $cams_persp[$i]";
+	}
+	string $curPanel=`getPanel -withFocus`;
+	string $curCam=`modelPanel -q -cam $curPanel`;
+
+	optionMenu -e -value $curCam $nsCamOM;
+
+	optionMenu -e -cc "lookThroughModelPanel `optionMenu -q -value $nsCameraOptionMenu` `getPanel -withFocus`" $nsCamOM;	
+}
+

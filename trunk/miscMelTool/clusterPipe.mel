@@ -1,0 +1,231 @@
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// This script may be freely distributed. Modify at your own risk.
+//
+// Author:             liushengjie
+//
+// Creation Date:       
+// Last Update:         ()
+//
+
+
+
+global proc draw_curve(vector $guide_point[],vector $guide_normal[],int $sample,float $jitter)
+{
+
+	int $guides=`size $guide_point`;
+	int $k;
+	vector $vec0=$guide_point[0];
+	vector $vec1;
+	vector $nor0=$guide_normal[0];
+	vector $nor1;
+	$curve1=`curve -p ($vec0.x) ($vec0.y) ($vec0.z)`;
+
+	for($k=0;$k<$guides-1;$k++){
+
+
+		int $j;
+		float $distance=mag($guide_point[$k+1]-$guide_point[$k]);
+
+		//float $step=($distance/5)*(1+rad_to_deg(angle($guide_normal[$k],$guide_normal[$k+1]))/180);
+		float $step=($distance/6);
+
+
+		vector $nor0=$guide_normal[$k];	
+		float $dx=$step*$nor0.x;
+		float $dy=$step*$nor0.y;
+		float $dz=$step*$nor0.z;
+
+		vector $guide_point_interpolation1=$guide_point[$k]+<<$dx,$dy,$dz>>;
+		vector $guide_point_interpolation2=$guide_point_interpolation1+<<$dx,$dy,$dz>>;
+
+	
+		vector $nor0=$guide_normal[$k+1];	
+		float $dx=$step*$nor0.x;
+		float $dy=$step*$nor0.y;
+		float $dz=$step*$nor0.z;
+		
+		vector $guide_point_interpolation4=$guide_point[$k+1]-<<$dx,$dy,$dz>>;
+		vector $guide_point_interpolation3=$guide_point_interpolation4-<<$dx,$dy,$dz>>;
+
+
+		vector $guide_point_interpolation2m=$guide_point_interpolation2*0.75+$guide_point_interpolation3*0.25 + <<rand(-$jitter,$jitter),rand(-$jitter,$jitter),rand(-$jitter,$jitter)>>;
+		vector $guide_point_interpolation3m=$guide_point_interpolation2*0.25+$guide_point_interpolation3*0.75 + <<rand(-$jitter,$jitter),rand(-$jitter,$jitter),rand(-$jitter,$jitter)>>;
+		
+
+		curve -a -p ($guide_point_interpolation1.x) ($guide_point_interpolation1.y) ($guide_point_interpolation1.z) $curve1;
+		curve -a -p ($guide_point_interpolation2m.x) ($guide_point_interpolation2m.y) ($guide_point_interpolation2m.z) $curve1;	
+		curve -a -p ($guide_point_interpolation3m.x) ($guide_point_interpolation3m.y) ($guide_point_interpolation3m.z) $curve1;
+		curve -a -p ($guide_point_interpolation4.x) ($guide_point_interpolation4.y) ($guide_point_interpolation4.z) $curve1;
+	
+		vector $vec0=$guide_point[$k+1];
+		curve -a -p ($vec0.x) ($vec0.y) ($vec0.z) $curve1;
+	}
+
+
+
+	rebuildCurve -ch 0 -rpo 1 -rt 0 -end 1 -kr 0 -kcp 0 -kep 1 -kt 1 -s $sample -d 3 -tol 0.01 $curve1;
+	//rebuildCurve -ch 0 -rpo 1 -rt 0 -end 1 -kr 0 -kcp 0 -kep 1 -kt 0 -s $sample -d 3 -tol 0.01 $curve1;
+	
+	
+	
+
+}
+
+global proc vector average_vtx_n(float $array[]){
+
+	int $asize=`size $array`;
+	int $i;
+	vector $sum;
+	for($i=0;$i<$asize/3;$i++){
+		$sum=$sum+<<$array[$i*3+0],$array[$i*3+1],$array[$i*3+2]>>;
+
+	}
+	return ($sum/$asize*3);
+	
+}
+
+global proc vector vector2angle_world_y_up(vector $v1){
+	vector $v2=<<0,$v1.y,$v1.z>>;
+	float $rx=rad_to_deg(angle($v1,<<0,1,0>>));
+	vector $v2=<<$v1.x,0,$v1.z>>;
+	float $ry1=rad_to_deg(angle($v2,<<0,0,1>>));
+	float $ry2=rad_to_deg(angle($v2,<<1,0,0>>));
+	if(rad_to_deg($ry2)>90) $ry= -$ry1;
+	else $ry=$ry1;
+	
+	vector $rr=<<$rx,$ry,0>>;
+
+/***
+	$zrotate=`atan2d ($normal.y) ($normal.x)`-90;
+	$yrotate=`atan2d ($normal.z) (-$normal.x)`+180;
+	$xrotate=`atan2d ($normal.y) (-$normal.z)`-90;
+***/
+
+
+	return $rr;
+}
+
+global proc clusterCurves(int $sample,float $jitter){
+
+	makeIdentity -apply true -t 0 -r 1 -s 0 -n 0;
+	string $selection[]=`ls -sl`;
+	string $src_poly=$selection[0];
+	int $src_density[]=`polyEvaluate -v $src_poly`;
+	int $density=$src_density[0];
+	int $i,$k;
+	int $guides=`size $selection`;
+	float $gn[];
+	vector $guide_point[],$guide_normal[];
+	vector $src_vec,$dist_vec;
+	for ($i=0;$i<$density;$i++){
+		
+		for($k=0;$k<$guides;$k++) {
+			vector $pos=`pointPosition -w ($selection[$k]+".vtx["+$i+"]")`;
+			$guide_point[$k]=$pos;
+			$gn=`polyNormalPerVertex -q -xyz ($selection[$k]+".vtx["+$i+"]")`;
+			vector $vec=average_vtx_n($gn);
+			$guide_normal[$k]=$vec;
+		}
+		draw_curve( $guide_point, $guide_normal, $sample,$jitter);
+
+	}
+
+}	
+
+global proc createPipe(){
+
+	$curves=`ls -sl`;
+	$profile=`circle -ch off -o on -nr 0 1 0`;
+	
+
+	int $i;
+	for($i=0;$i<`size $curves`;$i++){
+		extrude -ch true -rn true -po 0 -et 2 -ucp 1 -fpt 1 -upn 1 -rotation 0 -scale 1 -rsp 1 $profile $curves[$i] ;
+	}
+}
+
+
+global proc createKnot(string $start_knot,string $end_knot){
+
+
+	makeIdentity -apply true -t 0 -r 1 -s 0 -n 0;
+	string $selection[]=`ls -sl`;
+	string $src_poly=$selection[0];
+	int $src_density[]=`polyEvaluate -v $src_poly`;
+	int $density=$src_density[0];
+	int $i,$k;
+	int $guides=`size $selection`;
+	float $gn[];
+	vector $guide_point[],$guide_normal[];
+	vector $src_vec,$dist_vec;
+	for ($i=0;$i<$density;$i++){
+		
+		for($k=0;$k<$guides;$k++) {
+			vector $pos=`pointPosition -w ($selection[$k]+".vtx["+$i+"]")`;
+			$guide_point[$k]=$pos;
+			$gn=`polyNormalPerVertex -q -xyz ($selection[$k]+".vtx["+$i+"]")`;
+			vector $vec=average_vtx_n($gn);
+			$guide_normal[$k]=$vec;
+		}
+
+		
+		if(`size $start_knot`>0){	
+			string $new_knot_list[]=`duplicate -rr $start_knot`;
+			string $new_knot=$new_knot_list[0];
+			select -r $new_knot;
+			$pos=$guide_point[0];
+			setAttr ($new_knot+".translateX") ($pos.x);
+			setAttr ($new_knot+".translateY") ($pos.y);
+			setAttr ($new_knot+".translateZ") ($pos.z);
+			vector $rd=vector2angle_world_y_up($guide_normal[0]);
+			setAttr ($new_knot+".rotateX") ($rd.x);
+			setAttr ($new_knot+".rotateY") ($rd.y);
+			setAttr ($new_knot+".rotateZ") ($rd.z);
+		}
+
+		if(`size $end_knot`>0){	
+			string $new_knot_list[]=`duplicate -rr $end_knot`;
+			string $new_knot=$new_knot_list[0];
+			select -r $new_knot;
+			$pos=$guide_point[$guides-1];
+			setAttr ($new_knot+".translateX") ($pos.x);
+			setAttr ($new_knot+".translateY") ($pos.y);
+			setAttr ($new_knot+".translateZ") ($pos.z);
+			vector $rd=vector2angle_world_y_up($guide_normal[$guides-1]);
+			setAttr ($new_knot+".rotateX") ($rd.x);
+			setAttr ($new_knot+".rotateY") ($rd.y);
+			setAttr ($new_knot+".rotateZ") ($rd.z);
+		}
+
+	}
+
+
+}
+
+
+global proc clusterPipe(){
+
+	global string $cp_sample,$cp_jitter,$cp_sk,$cp_ek;
+	
+	if(`window -exists "clusterPipeWindow"`) deleteUI "clusterPipeWindow";
+	window -wh 500 208 -rtf true -title "clusterPipeTool v0.1"  "clusterPipeWindow";
+			frameLayout -w 500 -mw 2 -lv false -bv false;
+			columnLayout -rowSpacing 3 -columnOffset "both" 3 -adj true;
+				$cp_sample = `intSliderGrp -label "sample" -field true
+					-minValue 6 -maxValue 100
+					-fieldMinValue 6 -fieldMaxValue 100 -value 8
+					`;
+				$cp_jitter = `floatSliderGrp -label "jitter" -field true 
+					-minValue 0 -maxValue 20.0
+					-fieldMinValue 0 -fieldMaxValue 20 -value 0.5 -step 0.01
+					`;
+				$cp_sk = `textFieldButtonGrp -label "start knot" -text "" -buttonLabel "get" -bc "textFieldButtonGrp -e -text `ls -sl -head 1` $cp_sk "`;
+				$cp_ek = `textFieldButtonGrp -label "end knot" -text "" -buttonLabel "get" -bc "textFieldButtonGrp -e -text `ls -sl -tail 1` $cp_ek "`;
+		
+				button -w 400 -l "clusterCurves" 
+					-c "clusterCurves(	`intSliderGrp -q -value $cp_sample`, `floatSliderGrp -q -value $cp_jitter`)";
+				button -w 400 -l "createPipes"	-c "createPipe()";
+				button -w 400 -l "createKnots"	-c "createKnot(	`textFieldButtonGrp -q -text $cp_sk`, `textFieldButtonGrp -q -text $cp_ek`)";
+			setParent ..;
+	showWindow "clusterPipeWindow";
+}

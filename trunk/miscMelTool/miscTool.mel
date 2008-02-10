@@ -1,0 +1,356 @@
+/***CHANGING LOG
+//v20070620 
+//	add clusterPipe tool.
+//
+v200708016
+	add LazyCube UV projection
+20080131
+	add simpleMuscleBuilder
+20080202
+	implement re_prefix
+20080204
+	add symmetric Modelling (experiment)
+
+
+***/
+
+global proc mt_symmetricModelling(int $symmetry, string $axis, float $tolerance){
+
+	symmetricModelling -symmetry $symmetry -axis $axis -tolerance $tolerance;
+
+}
+
+
+global proc mt_linearRename(string $new_prefix) {
+	
+	string $new_name;
+	string $obj_list[] =`ls -sl`;
+	int $i;
+	for($i=0;$i<`size $obj_list`;$i++){
+		
+		$new_name= $new_prefix+($i+1);
+		rename $obj_list[$i] $new_name;
+
+	}
+	
+
+}
+
+global proc mt_matchBoundingUV(int $type){ //make src's boundingbox match dest's boundingbox, then transfer uvs.
+	string $objs[] = `ls -sl`;
+	Unparent;
+	select -cl;
+	float $src_box[]=`exactWorldBoundingBox $objs[0]`;
+	float $dest_box[]=`exactWorldBoundingBox $objs[1]`;
+	select $objs[0];
+	CenterPivot;
+	FreezeTransformations;
+	scale -a (($dest_box[3]-$dest_box[0])/($src_box[3]-$src_box[0])) (($dest_box[4]-$dest_box[1])/($src_box[4]-$src_box[1])) (($dest_box[5]-$dest_box[2])/($src_box[5]-$src_box[2]));
+	float $src_box[]=`exactWorldBoundingBox $objs[0]`;
+	move -a -ws ($dest_box[0]-$src_box[0]) ($dest_box[1]-$src_box[1]) ($dest_box[2]-$src_box[2]);
+	select $objs[0] $objs[1];
+	FreezeTransformations;
+	transferAttributes -transferUVs 2 -sampleSpace 0 $objs[0] $objs[1];
+	DeleteHistory;
+	if($type == 0)	delete $objs[0];
+	if($type == 1) delete $objs[1];
+}
+
+global proc mt_matchUVcomponent(){
+	string $objs[] = `ls -sl`;
+	transferAttributes -transferUVs 2 -sampleSpace 4 $objs[0] $objs[1];
+	select $objs[1];
+}
+
+
+global proc mt_lazyCubeUV(){
+
+	int $i=0;
+	string $objSel[]=`ls -sl`;
+	while($i<`size $objSel`) {
+	
+		float $boundingBox[] = `exactWorldBoundingBox $objSel[$i]`;
+		float $manipX = ($boundingBox[0] + $boundingBox[3])/2.0;
+		float $manipY = ($boundingBox[1] + $boundingBox[4])/2.0;
+		float $manipZ = ($boundingBox[2] + $boundingBox[5])/2.0;
+	
+		polyAutoProjection -lm 1  -ibd 1 -ws 1
+			-projectBothDirections 0 
+			-createNewMap 0 
+			-layout 3 
+			-scaleMode 0 
+			-optimize 0 
+			-planes 3 
+			-percentageSpace 0 
+			-scale 6 6 6
+			-pivot $manipX 0 $manipZ
+			-t $manipX 0 $manipZ
+			;
+		$i++;
+	}	
+
+}
+
+
+global proc mt_createJointFromCurve(){
+	string $curves_list[]=`ls -sl`;
+	
+	int $curves_num=`size $curves_list`;
+	int $current_curve_id;
+	for($current_curve_id=0;$current_curve_id<$curves_num;$current_curve_id++){
+		string $current_curve=$curves_list[$current_curve_id]; 
+		string $attr=$current_curve+".spans"; 
+		int $cv_points_num=`getAttr $attr`; //get curve spans, eq. CV point amount -1.
+		int $current_cv_point_id;
+		string $pre_joint="";
+		for( $current_cv_point_id=0;$current_cv_point_id<=$cv_points_num;$current_cv_point_id++){
+			string $current_cv_point=$current_curve+".cv["+$current_cv_point_id+"]";
+			vector $current_cv_pos = `xform -query -worldSpace -translation $current_cv_point`; // get the CV's worldspace.
+			string $current_joint=$current_curve+"_joint_"+$current_cv_point_id;
+			select -cl;
+			joint -position ($current_cv_pos.x) ($current_cv_pos.y) ($current_cv_pos.z) -name ($current_joint);
+			
+			if(`objExists $pre_joint` ){
+				parent $current_joint $pre_joint;
+				joint -e -zso -oj xyz -sao yup $pre_joint;
+			}
+			$pre_joint=$current_joint;
+		}	
+		
+	}
+}
+
+
+global proc mt_matchChannelSel(string $channel_box, float $scale){
+	
+	string $obj[]=`ls -sl`;
+	string $channel_sel[] = `channelBox -q -sma $channel_box`;
+	float $tmp;
+	
+	int $i=0,$j=1;
+	while($j<`size $obj`){
+		$i=0;
+		while($i<`size $channel_sel`){
+			setAttr ($obj[$j]+"."+$channel_sel[$i]) ((`getAttr ($obj[0]+"."+$channel_sel[$i])`)*$scale);
+			$i++;	
+		}
+		$j++;
+	}
+}
+
+global proc mt_channelTester(string $channel_box){
+	
+	global string $w_sliderRanger;
+	global string $w_sliderGroup[];
+	clear $w_sliderGroup;
+	
+	int $i,$j;	
+
+	string $obj[]=`ls -sl`;
+	string $channel_sel[]=`channelBox -q -sma $channel_box`;
+	if (`window -ex mt_channelTesterWindow`)
+		deleteUI mt_channelTesterWindow;
+
+	window -wh 240 240 -title "channel tester" mt_channelTesterWindow;
+		frameLayout -bv 0 -lv 0 -mw 5 -mh 5;
+			scrollLayout -vst 16 -hst 16;
+				columnLayout -adjustableColumn true -rs 2;
+				$w_sliderRanger=`floatFieldGrp -numberOfFields 3 -label "min max step" -value1 -1.0 -value2 1.0 -value3 0.01`;
+				button -label "set range" -c "mt_channelTesterRanger($w_sliderRanger,$w_sliderGroup)";
+				for($i=0;$i<`size $obj`;$i++){
+					text -label $obj[$i];
+					for($j=0;$j<`size $channel_sel`;$j++) {
+						
+						$w_sliderGroup[`size $w_sliderGroup`] = `floatSliderGrp -label $channel_sel[$j] -field true
+							-minValue -10.0 -maxValue 10.0
+							-value 0`;
+							
+						floatSliderGrp -e -cc ("setAttr "+$obj[$i]+"."+$channel_sel[$j]+" `floatSliderGrp -q -value "+$w_sliderGroup[`size $w_sliderGroup`-1]+"`") $w_sliderGroup[`size $w_sliderGroup`-1];	
+
+						
+					}
+				
+				}
+					
+					
+	showWindow mt_channelTesterWindow;
+	
+}
+
+global proc mt_channelTesterRanger(string $w_ranger,string $w_slider[]){
+
+	int $i;
+	for($i=0;$i<`size $w_slider`;$i++){
+		
+		floatSliderGrp -e -minValue `floatFieldGrp -q -value1 $w_ranger` $w_slider[$i];
+		floatSliderGrp -e -maxValue `floatFieldGrp -q -value2 $w_ranger` $w_slider[$i];
+		floatSliderGrp -e -step `floatFieldGrp -q -value3 $w_ranger` $w_slider[$i];
+	}
+	
+	
+}
+
+
+
+global proc mt_orientSelectJoint(){
+
+	string $sel[]=`ls -sl -head 1`;
+	joint -e -zso -oj xyz -sao yup $sel[0];
+
+}
+
+
+global proc mt_outliner(){
+if (`window -ex mtOutlinerWindow`)
+		showWindow mtOutlinerWindow;
+else {
+    window -title "mt Outliner" mtOutlinerWindow;
+    frameLayout -labelVisible false -mw 5 -mh 5;
+    string $panel = `outlinerPanel`;
+    showWindow;
+}
+
+}
+global proc mt_reprefix(string $oldprefix, string $newprefix){
+	string $objs[]=`ls -sl`;
+	string $oldname;
+	for ($oldname in $objs) {
+		$newname=`substitute $oldprefix $oldname $newprefix`;
+		rename $oldname $newname;
+	}
+}
+
+
+
+global proc miscTool(){
+
+	source "uniqueCharacterUIBlocker.mel";
+	source "uniqueCharacterUIConstructor.mel";
+	source "writeActorInfo.mel";
+	source "propTool.mel";
+	source "clusterPipe.mel";
+	source "simpleMuscle.mel";
+	
+	
+	global string $mt_rename_text;
+	global string $mt_prefix_text;
+	global string $mt_oldprefix_text;
+	global string $mt_newprefix_text;
+	
+	
+	if (`window -ex miscToolWindow`)
+			showWindow miscToolWindow;
+		
+	else {
+	
+		
+		string $miscToolWindow=`window -resizeToFitChildren 1 -s 0 -w 280 -h 480 -title "miscTools"  miscToolWindow`;
+		
+			//frameLayout -mw 5 -mh 5 -lv 0 -bv 0;
+			//scrollLayout;
+		
+		
+			columnLayout -adjustableColumn 1 -columnOffset "both" 3 -rs 2;
+		
+				frameLayout -label "TransformAttr" -collapsable true -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+					button -w 200 -label "Freeze T" -command "makeIdentity -apply true -t 1 -r 0 -s 0 -n 0"; 
+					button -w 200 -label "Freeze R" -command "makeIdentity -apply true -t 0 -r 1 -s 0 -n 0"; 
+					button -w 200 -label "Freeze S" -command "makeIdentity -apply true -t 0 -r 0 -s 1 -n 0";
+					button -w 200 -label "Freeze N" -command "makeIdentity -apply true -t 0 -r 0 -s 0 -n 1";
+					
+					separator -w 200;
+					
+					button -w 200 -label "Match ChannelSel src2dest" -command "mt_matchChannelSel($gChannelBoxName,1)"; //we must pass the global var to the proc
+					button -w 200 -label "Match ChannelSel reverse src2dest" -command "mt_matchChannelSel($gChannelBoxName,-1)";
+						
+					setParent ..;
+				setParent ..;
+			
+				
+				
+			
+				frameLayout -label "UV utils" -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+						button -w 200 -l "match uv+bounding del src" -command "mt_matchBoundingUV(0)";
+						button -w 200 -l "match uv+bounding del dest" -command "mt_matchBoundingUV(1)"; 
+						button -w 200 -l "match uv component" -command "mt_matchUVcomponent()";
+						separator -w 200;
+						button -w 200 -l "LazyCube UV Projection" -command "mt_lazyCubeUV()";
+						
+					setParent ..;
+				setParent ..;
+			
+				frameLayout -label "Naming Tool"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+						columnLayout -rowSpacing 5 -columnAlign "center" -adjustableColumn 1;
+							text -label "Linear Rename: new name";
+							$mt_rename_text=`textField -w 140 -text "newname"` ;
+					
+							button -l "LinearRename" -w 140 -c "mt_linearRename(`textField -q -text  $mt_rename_text`)";
+						setParent ..;
+			
+						columnLayout -rowSpacing 5 -columnAlign "center" -adjustableColumn 1;
+							text -label "RePrefix: new prefix";
+							$mt_oldprefix_text=`textField -w 140 -text "old_prefix"`;
+							$mt_newprefix_text=`textField -w 140 -text "new_prefix"`;
+					
+							button -w 200 -l "rePrefix" -c "mt_reprefix(`textField -q -text $mt_oldprefix_text`,`textField -q -text $mt_newprefix_text`)";
+						setParent ..;			
+			
+					setParent ..;
+				setParent ..;
+			
+				frameLayout -label "Procedure Modeling Tool"  -collapsable true  -cl true  -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+						button -w  200 -l "clusterPipeTool" -c "clusterPipe()";
+						button -l "symmetricModelling X-axis on" -c "mt_symmetricModelling(1, \"x\", 0.1)";
+						button -l "symmetricModelling off" -c "mt_symmetricModelling(0, \"x\", 0.1)";
+					setParent .. ;
+				setParent ..;
+			
+				frameLayout -label "Character ToolBox"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+		
+						button -w 200 -l "draw bones from curves" -c "mt_createJointFromCurve()";
+						button -w 200 -l "simpleMuscleBuilder" -c "simpleMuscleBuilderUI()";
+						button -w 200 -l "orient select joint" -c "mt_orientSelectJoint()";
+						button -w 200 -l "channel tester" -c "mt_channelTester($gChannelBoxName)";
+						separator -w 200 -height 8 -style "in";
+						text -label "Unique Character Tool";
+						columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+							button -w 200 -l "unique Character UI Constructor" -c "uniqueCharacterUIConstructor()";
+							button -w 200 -l "unique Character UI Blocker" -c "uniqueCharacterUIBlocker()";
+							separator -w 200 -height 8 -style "in";
+							
+							
+							button -w 200 -l "Write Info" -c "writeActorInfoUI()";
+				
+							text -label "Prefix:";
+							$mt_prefix_text=`textField -w 140 -text "Character"` ;
+							button -w 200 -l "Prop Tool"  -c "propTool(`textField -q -text $mt_prefix_text`)";
+								
+						setParent ..;
+					setParent ..;
+				setParent ..;
+				frameLayout -label "Helper"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+						button -l "cobranail's ToolShelf" -c "cobranailToolbox";
+		//				button -l "About..." -c "confirmDialog -title \"About...\" -message \"cobranail@gmail.com\"";
+					setParent .. ;	
+				setParent .. ;
+				
+				separator;
+				
+			setParent ..;
+		
+			//setParent ..;
+			//setParent ..;
+				
+		showWindow $miscToolWindow;
+		
+		window -e -wh 100 100 $miscToolWindow;
+	}
+
+}
+

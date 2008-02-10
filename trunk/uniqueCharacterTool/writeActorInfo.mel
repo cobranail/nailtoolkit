@@ -1,0 +1,80 @@
+/***
+0.0.1
+	rmPrefix，import的文件都会带上prefix，如果要通用的话，就需要rmprefix
+***/
+
+global proc writeDataFile(string $groupName,string $rmprefix){
+	
+	string $buffer;
+	string $controller[]=`ls -sl`;	
+
+	string $dataFile=(`internalVar -userTmpDir` + $groupName+".txt");
+	$fileID = `fopen $dataFile "w"`;
+	
+	for($buffer in $controller){
+
+		float $tx=`getAttr ($buffer+".translateX")`;
+		float $ty=`getAttr ($buffer+".translateY")`;
+		float $tz=`getAttr ($buffer+".translateZ")`;
+		float $rx=`getAttr ($buffer+".rotateX")`;
+		float $ry=`getAttr ($buffer+".rotateY")`;
+		float $rz=`getAttr ($buffer+".rotateZ")`;
+
+		if(`size $rmprefix` && startsWith($buffer,$rmprefix)){
+	
+			$buffer=`substitute $rmprefix $buffer ""`;
+
+		}
+
+
+		string $str=$buffer+" "+$tx+" "+$ty+" "+$tz+" "+$rx+" "+$ry+" "+$rz+"\n";
+		fprint $fileID $str;
+
+	}
+	fclose $fileID;
+
+}
+
+
+global proc writeData(string $prefix, string $controller,string $status,string $rmprefix){
+
+
+	if(`size $rmprefix` && startsWith($controller,$rmprefix)){
+	
+		$controller=`substitute $rmprefix $controller ""`;
+
+	}
+	
+	string $groupName=$prefix+"_"+$controller+"_"+$status;
+
+	writeDataFile($groupName,$rmprefix);
+}
+
+
+global proc writeActorInfoUI(){
+
+global string $sw_prefix;
+global string $sw_controller;
+global string $sw_window;
+global string $sw_status;
+global string $sw_rmprefix;
+string $ctrList[];
+
+$sw_window=`window -rtf true -wh 255 236 -sizeable false -title "WriteInfoTool"`;
+
+	frameLayout -cll false -label "WriteInfoTool";
+		columnLayout -rowSpacing 8 -w 240;
+			$sw_prefix=`textFieldGrp -w 240 -cw 1 60 -cw 2 180 -cal 1 "left" -cal 2 "left" -label "prefix" -text "Actor"`;
+			$sw_controller=`textFieldGrp -w 240 -cw 1 60 -cw 2 180 -cal 1 "left" -cal 2 "left" -label "controller"`;
+			$sw_status=`textFieldGrp -w 240 -cw 1 60 -cw 2 180 -cal 1 "left" -cal 2 "left" -label "status" -text "matcher"`;
+			$sw_rmprefix=`textFieldGrp -w 240 -cw 1 60 -cw 2 180 -cal 1 "left" -cal 2 "left" -label "rmPrefix" -text ""`;
+			button -w 240 -label "SetControllerName" -c "$ctrList=`ls -sl`;textFieldGrp -e -text $ctrList[0] $sw_controller";
+			rowLayout -numberOfColumns 2 -cw 1 120 -cw 2 120;
+				button -w 120 -label "WriteData" -c "writeData(`textFieldGrp -q -text $sw_prefix` , `textFieldGrp -q -text $sw_controller`, `textFieldGrp -q -text $sw_status`,`textFieldGrp -q -text $sw_rmprefix`)";
+				button -w 120 -label "close" -c "deleteUI $sw_window";
+			setParent ..;
+		setParent ..;
+	setParent ..;
+
+showWindow $sw_window;
+}
