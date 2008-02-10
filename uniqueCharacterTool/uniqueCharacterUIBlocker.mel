@@ -1,0 +1,414 @@
+//# Character Interface 
+//# ver 0.0.1
+/***
+changlog
+
+0.0.0 
+	使用iconTextButton做元素
+0.0.1
+	使用iconTextRadioButton
+
+0.0.2 
+	支持命令图标
+
+0.0.3	
+	宽度改为240
+
+0.0.4 支持namescape，仅在创建interface的时候使用，从文件中读取数据的时候并不使用namescape，并且在执行过程中被叫做suffix
+
+
+20080204
+	更名unique Character UI Blocker
+	所有的"Actor"都更名为"Character"
+	
+
+***/
+
+
+
+global proc createCharacterInterface( string $parentWidget ,string $suffix, string $prefix ,string $characterTypes, int $imgW, int $imgH){
+	global string $userUCUIDataDir;
+	string $userUCUIDataPath=$userUCUIDataDir+"/";
+	
+	string $typeList[];
+	tokenize($characterTypes , $typeList);
+	
+	int $j;
+	
+	for($j=0;$j<`size $typeList`;$j++){
+		
+
+		string $type=$typeList[$j];
+		
+		string $uiBlock[];
+		string $blockName[];
+		string $mainpName[];
+		string $objName;
+		
+		int $i=0;
+		int $blockCoordX[];
+		int $blockCoordY[];
+		int $blockWidth[];
+		int $blockHeight[];
+
+		//read ui block data
+			
+		$blockDataFileName = ($userUCUIDataPath+$prefix+"_"+$type+"_block.txt");
+		
+		$fileID=`fopen $blockDataFileName "r"`;
+		string $nextLine = `fgetline $fileID`;
+	
+		string $buffer[];
+		tokenize($nextLine , $buffer);
+		string $prefix=$buffer[0];
+		string $type=$buffer[1];
+		
+	
+		do {
+			$nextLine = `fgetline $fileID`;
+			if(size( $nextLine ) > 0){
+				tokenize($nextLine , $buffer);
+				
+				$mainpName[$i]=$buffer[0];
+				$blockName[$i]=$buffer[1];
+				$blockCoordX[$i]=$buffer[2];
+				$blockCoordY[$i]=$buffer[3];
+				$blockWidth[$i]=$buffer[4];
+				$blockHeight[$i]=$buffer[5];
+				$i++;
+			}
+		} while (size( $nextLine ) > 0);
+		fclose $fileID;
+		
+
+		//read cmd data
+
+		$cmdDataFileName = ($userUCUIDataPath+$prefix+"_"+$type+"_cmd.txt");
+		
+		$fileID=`fopen $cmdDataFileName "r"`;
+		string $nextLine = `fgetline $fileID`;
+		string $bufferGeo;
+		string $bufferCmd;
+
+		string $blockCmdName[];
+		string $blockUICmd[];
+		
+		int $i=0;
+		
+		int $blockCmdCoordX[];
+		int $blockCmdCoordY[];
+		int $blockCmdWidth[];
+		int $blockCmdHeight[];
+	
+		do {
+			$bufferGeo = `fgetline $fileID`;
+			$bufferCmd = `fgetline $fileID`;
+			if(size( $bufferGeo ) > 0 && size( $bufferCmd )){
+			
+				$blockUICmd[$i]=$bufferCmd;
+
+				tokenize($bufferGeo , $buffer);
+
+				$blockCmdName[$i]=$buffer[0];
+				$blockCmdCoordX[$i]=$buffer[1];
+				$blockCmdCoordY[$i]=$buffer[2];
+				$blockCmdWidth[$i]=$buffer[3];
+				$blockCmdHeight[$i]=$buffer[4];
+				$i++;
+			}
+		} while (size( $bufferGeo ) > 0 && size( $bufferCmd ));
+		fclose $fileID;
+
+
+		//generate common ui backgound	
+		
+		string $interface_form = `formLayout -w $imgW -h $imgH -numberOfDivisions 100 -parent $parentWidget ($type+"Tab")`;
+	
+	
+		//does not work
+		//reloadImage ("/home/cobranail/maya/8.5/prefs/icons/"+$bgImage) $bgBlockImage;
+
+
+		//begin to generate controller's iconRadioButton
+		
+		string $btnCollection=`iconTextRadioCollection`;
+		
+		for($i=0;$i<`size $blockName`;$i++){
+	
+	
+			$objName=$mainpName[$i];		
+	
+			string $blockCmd="select -r \""+$suffix+$objName+"\"";
+			
+			string $iconImage=($prefix+"_"+$type+"_"+$blockName[$i]+".xpm");
+			string $iconImageActive=($prefix+"_"+$type+"_"+$blockName[$i]+"_Active.xpm");
+			
+
+			$uiBlock[$i]=`
+				iconTextButton -w $blockWidth[$i] -h $blockHeight[$i] 
+					-style "iconOnly" -image $iconImage -image1 $iconImageActive -label $blockName[$i] 
+					-command $blockCmd
+			`;	
+			
+
+			//string $irOnCmd=("iconTextRadioButton -e -image \""+$iconImageActive+"\" \""+$uiBlock[$i]+"\"");
+			//string $irOffCmd=("iconTextRadioButton -e -image \""+$iconImage+"\" \""+$uiBlock[$i]+"\"");
+
+
+			//unfortunately, I must create block first, then generate status command , finally, attach the cmds to the block
+			//iconTextButton -e -c ($irOnCmd+";"+$blockCmd) -ofc $irOffCmd $uiBlock[$i];
+			
+			formLayout -edit -w $imgW -h $imgH
+			-attachForm $uiBlock[$i] "left"    $blockCoordX[$i]
+			-attachForm $uiBlock[$i] "top"   $blockCoordY[$i]
+			$interface_form;
+			
+			//does not work
+			//reloadImage ("/home/cobranail/maya/8.5/prefs/icons/"+$prefix+"_"+$type+"_"+$blockName[$i]+".xpm") $uiBlock[$i];
+			
+		}
+		
+		
+		//begin to generate command's iconButton
+		
+		setParent $interface_form;
+		for($i=0;$i<`size $blockCmdName`;$i++){
+	
+	
+			string $blockCmd=$blockUICmd[$i];
+			
+			string $iconImage=($prefix+"_"+$type+"_command_"+$blockCmdName[$i]+".xpm");
+			string $iconImageActive=($prefix+"_"+$type+"_command_"+$blockCmdName[$i]+"_Active.xpm");
+			
+
+			$uiBlock[$i]=`
+				iconTextButton -w $blockCmdWidth[$i] -h $blockCmdHeight[$i] 
+					-style "iconOnly" -image $iconImage -image1 $iconImageActive -label $blockCmdName[$i] 
+					-command $blockCmd
+			`;	
+			
+			formLayout -edit -w $imgW -h $imgH
+			-attachForm $uiBlock[$i] "left"    $blockCmdCoordX[$i]
+			-attachForm $uiBlock[$i] "top"   $blockCmdCoordY[$i]
+			$interface_form;
+	
+			
+		}
+		
+		
+		// macosx fix: mac osx use a different way to render the UI, so I need to create bgimg behind the blocks.
+		// and, radiobutton can not used, for they need 2 click to display the icon.
+		// for all, it's very different to linux.
+		string $bgImage = ($prefix+"_"+$type+"_blockBackground.xpm");
+		string $bgBlockImage = `picture -image $bgImage`;
+		formLayout -edit -w $imgW -h $imgH
+		-attachNone  $bgBlockImage  "top" 
+		-attachNone  $bgBlockImage  "left" 
+		$interface_form;		
+		//for($i=0;$i<`size $blockName`;$i++){
+		//	iconTextButton -e -vis 1 $uiBlock[$i];
+		//}
+		
+		clear $uiBlock;
+		clear $blockName;
+		clear $mainpName;
+		clear $blockCmdName;
+		clear $blockUICmd;
+	
+	}
+
+}
+
+
+global proc addCharacter(string $parentWidget , string $iw_character_tab, string $suffix, string $prefix, string $type){
+
+
+	string $characterList[] = `optionMenuGrp -q -itemListShort $parentWidget`;
+	int $prefixExists = 0;
+	string $buffer;
+	for( $buffer in $characterList){
+		string $longname=$suffix+$prefix;
+		if($longname == `menuItem -q -label $buffer` ) {
+			$prefixExists=1;
+			print ($longname+" is in characterList. \n");
+		}
+	}
+
+
+	if($prefixExists==0){
+		setParent $parentWidget; 
+		//yes , have to sepParent , -parent doesnt work.
+		
+		string $menuCmd="replaceCharacterInterface( \""+$iw_character_tab+"\" , \""+$suffix+"\" , \""+$prefix+"\" , \""+$type+"\")";
+		menuItem -label ($suffix+$prefix) -command $menuCmd;
+		
+		print ($menuCmd+"\n");
+	
+	
+		selectCharacter($parentWidget); 
+		//unlucky, I have to call this here, otherwise , first-load interface will not create.
+	}
+
+}
+
+
+global proc removeCharacter(string $parentWidget, string $iw_character_tab){
+	
+	string $characterList[] = `optionMenuGrp -q -itemListShort $parentWidget`;
+	int $currentCharacter = `optionMenuGrp -q -select $parentWidget`-1;
+	if($currentCharacter>=0) deleteUI $characterList[$currentCharacter];
+	
+	removeCharacterInterface(  $iw_character_tab );
+	if(`optionMenuGrp -q -numberOfItems $parentWidget` > 0){
+
+		optionMenuGrp -e -select 1 $parentWidget;
+
+		selectCharacter($parentWidget);
+		//unlucky, I have to call this here, otherwise , character interface does not recreate.
+	}
+	else{
+		setParent $parentWidget; 
+		menuItem -label "None";
+	}
+
+} 
+
+
+global proc selectCharacter(string $parentWidget){
+
+	
+	string $characterList[] = `optionMenuGrp -q -itemListShort $parentWidget`;
+	int $currentCharacter = `optionMenuGrp -q -select $parentWidget` -1;
+	if($currentCharacter<=0) $currentCharacter=0;
+	string $menuCmd = `menuItem -q -command $characterList[$currentCharacter]`;
+	eval($menuCmd);
+
+}
+
+
+
+
+global proc replaceCharacterInterface( string $iw_character_tab, string $suffix, string $prefix, string $type ){
+
+	removeCharacterInterface(  $iw_character_tab );
+
+	createCharacterInterface( $iw_character_tab ,$suffix, $prefix, $type, 240,240);	
+	
+	
+}
+
+global proc removeCharacterInterface( string $iw_character_tab){
+
+	string	$tabChild[]= `tabLayout -q -childArray $iw_character_tab`;
+	int $i=0;
+	while($i<`size $tabChild`){
+		
+		deleteUI $tabChild[$i];
+		$i++;
+	}
+}
+
+
+
+
+
+global proc uniqueCharacterUIBlocker(){
+
+global string $userUCUIDataDir;
+$userUCUIDataDir=`getenv "HOME"`+ "/" + "ucData";
+if(!`filetest -d $userUCUIDataDir`) sysFile -makeDir $userUCUIDataDir;
+
+
+
+//string $xbmlangpath=`getenv XBMLANGPATH`;
+//if(!`gmatch $xbmlangpath $userUCUIDataDir`) putenv "XBMLANGPATH" (`getenv XBMLANGPATH`+":"+$userUCUIDataDir);
+
+//unfortunatly, XBMLANGPATH must be set in maya.env, if you set here, nothing helps, icons still coundn't be found.
+
+	
+global string $uCharUIBlockerWindowVar;
+global string $iw_sel_character;
+global string $iw_character_tab;
+global string $iw_prefix;
+global string $iw_suffix;
+global string $iw_type;
+
+if(`window  -exists "uniqueCharacterUIBlockerWindow"`) showWindow "uniqueCharacterUIBlockerWindow";
+
+
+$uCharUIBlockerWindowVar=`window -sizeable false  -resizeToFitChildren true -title "Character Interface"  "uniqueCharacterUIBlockerWindow"`;
+	columnLayout -columnOffset "both" 3 -rowSpacing 8 -adjustableColumn true;
+		
+		frameLayout -label "Character" -borderStyle "out" -marginWidth 3 -cll 0;
+				
+				$iw_sel_character=`
+				optionMenuGrp -w 220 -label "Name"
+				-columnWidth 1 80
+				-columnWidth 2 140
+				-columnAlign 1 "center" 
+				-columnAlign 2 "right"
+				-changeCommand "selectCharacter($iw_sel_character)" 
+				"character_list"
+				`;
+
+		setParent ..;
+		
+		$iw_character_tab=`	tabLayout -w 100 -h 100`;
+		
+		setParent ..;
+		
+		frameLayout -label "Interface" -borderStyle "out" -marginWidth 3 -collapsable true -cc "window -e -wh 100 100 $uCharUIBlockerWindowVar";
+
+			columnLayout -rowSpacing 8 -adjustableColumn true ;
+				columnLayout -rowSpacing 8 -adjustableColumn true ;
+
+					$iw_suffix= 
+					`textFieldGrp -w 240 -label "NameScape"
+					-columnWidth 1 40 
+					-columnWidth 2 200
+					-columnAlign 1 "right" 
+					-columnAlign 2 "left" 					
+					-text ""
+					`;
+
+		
+					$iw_prefix= 
+					`textFieldGrp -w 240 -label "Prefix"
+					-columnWidth 1 40 
+					-columnWidth 2 200
+					-columnAlign 1 "right" 
+					-columnAlign 2 "left" 					
+					-text "Character"
+					`;	
+		
+		
+					$iw_type = 
+					`textFieldGrp -w 240 -label "Type"
+					-columnWidth 1 40 
+					-columnWidth 2 200
+					-columnAlign 1 "right" 
+					-columnAlign 2 "left" 					
+					-text "body"
+					`;
+		
+				setParent ..;
+		
+				rowLayout -numberOfColumns 2
+				-columnWidth 1 120 
+				-columnWidth 2 120
+				-columnAlign 1 "center" 
+				-columnAlign 2 "center" 
+				;
+					button -w 120 -label "Load Character" 
+						-command "addCharacter($iw_sel_character , $iw_character_tab,  `textFieldGrp -q -text $iw_suffix`,`textFieldGrp -q -text $iw_prefix`, `textFieldGrp -q -text $iw_type`)";
+					button -w 120 -label "Remove Current Character" 
+						-command "removeCharacter($iw_sel_character , $iw_character_tab)";
+				setParent ..;
+			setParent ..;
+		setParent ..;
+	setParent;
+showWindow $uCharUIBlockerWindowVar;
+
+window -e -wh 100 100 $uCharUIBlockerWindowVar;
+
+}
