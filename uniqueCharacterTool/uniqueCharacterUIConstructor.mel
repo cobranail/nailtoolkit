@@ -1,0 +1,751 @@
+//ver 0.0.1
+//
+
+
+
+/***
+
+
+use:
+1. create a background plane
+2. render background plane
+3. create shadings
+4. enter controller's name, and create block. or, select controller and use autoSelectToBlock
+5. (Op) switch to "command" mode, write commands, then create comand block
+6. switch back to "body/head...." mode, generate data
+
+
+
+changelog:
+
+0.0.0 
+	使用选择的物体名称
+
+0.0.1
+	使用输入的名称
+	产生两个blockImage，一个normal一个active
+	verify用不到了
+
+0.0.2
+	加入对ui/cmd block的支持
+	
+0.0.3	
+	不再用额外的数组保存关系
+	
+20080204
+	更名Unique Character UI Constructor
+	所有的"Actor"都更名为"Character"
+	变量和函数更名，加入ucui_前缀，使其看起来更直观
+	
+
+***/
+
+global proc ucui_createBackgroundBlock(float $vWidth, float $vHeight){
+	
+	if(!`objExists "blockBackground"`){
+		polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name "blockBackground";
+	
+		setAttr .translateX 0;
+		setAttr .translateY ($vHeight/2);
+		setAttr .translateZ -30;
+	
+		setAttr .scaleX $vWidth;
+		setAttr .scaleY $vHeight;
+	}
+
+}
+
+
+global proc ucui_renderBackgroundBlockImage(float $imgWidth, float $imgHeight, string $prefix, string $type){
+		global string $userUCUIDataDir;
+
+
+		setAttr "defaultRenderGlobals.imageFormat" 20;
+
+
+		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
+		float $bgBlockCoordY=`getAttr blockBackground.translateY`;
+		
+
+		setAttr frontShape.orthographicWidth $bgBlockWidth;
+		setAttr frontShape.filmFit 1;
+		setAttr front.translateX $bgBlockCoordX;
+		setAttr front.translateY $bgBlockCoordY;
+
+		
+		setAttr "defaultRenderGlobals.clipFinalShadedColor" 0;
+		setAttr "defaultRenderGlobals.jitterFinalColor" 0;
+
+		setAttr "defaultResolution.deviceAspectRatio" (1.0*$imgWidth/$imgHeight); 
+
+		
+		//unfortunately,I have to use deviceAspectRatio, because pixelAspect always gets error results..
+		
+
+		setAttr "defaultResolution.width" $imgWidth;
+		setAttr "defaultResolution.height" $imgHeight;
+
+
+		setAttr -type "string" defaultRenderGlobals.imageFilePrefix ($prefix+"_"+$type+"_"+"blockBackground");
+		
+		string $renderedFile = `render -x $imgWidth -y $imgHeight "front"`;
+
+		int $nameLen=`size $renderedFile`;
+		string $xpmName=`substring $renderedFile 1 ($nameLen-3)`+"xpm";
+
+		system("convert "+$renderedFile+" "+$xpmName);
+		system("mv "+$xpmName+" "+$userUCUIDataDir+"/");
+
+
+}
+
+
+
+global proc ucui_createBlock(int $colorIndex, string $shadingNodeSG[], string $type, string $name, string $cmd , string $blockList[] ) {
+
+	float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+	float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+	float $bgBlockCoordX=`getAttr blockBackground.translateX`;
+	float $bgBlockCoordY=`getAttr blockBackground.translateY`;
+
+
+	if(`size $name`>0) {
+	
+					
+		string $blockName[] = `polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name ("ui_Block_"+$name)`;
+
+		addAttr -ln "type" -dt "string" $blockName[0];
+		addAttr -ln "container" -dt "string" $blockName[0];
+
+		setAttr .translateX $bgBlockCoordX;
+		setAttr .translateY $bgBlockCoordY;
+	
+		setAttr .scaleX ($bgBlockWidth/5);
+		setAttr .scaleY ($bgBlockWidth/5);
+		
+		setAttr .translateZ 30;
+		if($type == "command") {
+
+			setAttr -type "string" ($blockName[0]+".type") $type;
+			setAttr -type "string" ($blockName[0]+".container") $cmd;
+			sets -e -forceElement $shadingNodeSG[5]; //always use black for ui-block
+			
+
+		}
+		else {
+
+			
+			setAttr -type "string" ($blockName[0]+".type") $type;
+			setAttr -type "string" ($blockName[0]+".container") $name;
+			sets -e -forceElement $shadingNodeSG[$colorIndex];
+		}
+
+		$blockList[`size $blockList`]=$blockName[0];
+	
+	}
+}
+
+
+global proc ucui_convertSelectionToBlocks(int $colorIndex, string $shadingNodeSG[], string $type, string $blockList[] ) {
+
+
+	
+	string $selObj[] = `ls -sl`;
+	int $objNum=`size $selObj`;
+	int $i;
+
+		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+
+
+	for($i=0;$i<$objNum;$i++){
+
+	
+	
+		float $coord[]=`xform -q -scalePivot -ws $selObj[$i]`;
+			
+		string $blockName[] = `polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name ("ui_Block_"+$selObj[$i])`;
+
+		addAttr -ln "type" -dt "string" $blockName[0];
+		addAttr -ln "container" -dt "string" $blockName[0];
+	
+		setAttr .translateX $coord[0];
+		setAttr .translateY $coord[1];
+	
+		setAttr .scaleX ($bgBlockWidth/5);
+		setAttr .scaleY ($bgBlockWidth/5);
+		
+		setAttr .translateZ 30;
+	
+		setAttr -type "string" ($blockName[0]+".type") $type;
+		setAttr -type "string" ($blockName[0]+".container") $selObj[$i];
+		sets -e -forceElement $shadingNodeSG[$colorIndex];
+		
+		$blockList[`size $blockList`]=$blockName[0];
+	}
+	
+}
+
+
+
+global proc string[] ucui_createBlockShader(){
+	
+	string $shadingNodeSG[];
+	string $shader;
+	string $texture;
+	
+
+	
+	int $i;
+	vector $rgb;
+	for($i=0;$i<4;$i++){
+		$shader = `shadingNode -asShader surfaceShader -name ("blockShading"+($i+1))`;
+		vector $rgb = `hsv_to_rgb <<(1.0/4*($i+1)),.5,1>>`;
+		//setAttr ($shader+".color") -type double3 ($rgb.x) ($rgb.y) ($rgb.z);
+		//setAttr ($shader+".transparency") -type double3 0.78 0.85 0.85;
+		//setAttr ($shader+".incandescence") -type double3 .1 .1 .1;
+		//setAttr ($shader+".ambientColor") -type double3 1 1 1;
+		//setAttr ($shader+".diffuse")  1;
+		$texture=`shadingNode -asTexture grid`;
+		setAttr ($texture+".uWidth") 0.05;
+		setAttr ($texture+".lineColor") -type double3 0 0 0 ;
+		setAttr ($texture+".fillerColor") -type double3 ($rgb.x) ($rgb.y) ($rgb.z) ;
+		
+		connectAttr -f ($texture+".outColor") ($shader+".outTransparency");
+		$shadingNodeSG[`size $shadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
+		connectAttr -f ($shader+".outColor") ($shadingNodeSG[$i]+".surfaceShader");
+	}
+
+		$shader = `shadingNode -asShader surfaceShader -name ("blockShading"+($i+1))`;
+		$texture=`shadingNode -asTexture grid`;
+		setAttr ($texture+".uWidth") 0.05;
+		setAttr ($texture+".lineColor") -type double3 0 0 0 ;
+		setAttr ($texture+".fillerColor") -type double3 1 1 1 ;
+		
+		connectAttr -f ($texture+".outColor") ($shader+".outTransparency");
+		$shadingNodeSG[`size $shadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
+		connectAttr -f ($shader+".outColor") ($shadingNodeSG[$i]+".surfaceShader");
+	
+	
+	
+	return $shadingNodeSG;
+
+}
+
+
+global proc ucui_mirrorSelection(){
+
+	string $slList[]=`ls -sl`;
+	float $xc;
+	int $i;
+	for($i=0;$i<`size $slList`;$i++){
+		
+		$xc=`getAttr ($slList[$i]+".translateX")`;
+		select $slList[$i];
+		duplicate -rr;
+		setAttr ".translateX" (-$xc);
+	}
+
+};
+
+
+//associate mirrored blocks
+global proc ucui_LinkMirroredBlockToTargets(string $blockList[], string $blocks[], string $targes[]){
+
+	int $i;
+	for($i=0;$i<=`size $blocks`;$i++){
+		
+		$blockList[`size $blockList`]=$blocks[$i];
+		setAttr -type "string" ($blocks[$i]+".container") $targes[$i];
+	}
+
+}
+
+
+//Check records
+global proc string[] verifyBlockList( string $blockList[] ){
+	
+	string $validBlockList[];
+	for($i=0;$i<=`size $blockList`;$i++){
+		
+		if(`objExists $blockList[$i]`) {
+
+			$validBlockList[`size $validBlockList`]=$blockList[$i];
+			
+		}
+
+	}
+	return 	$validBlockList;
+
+}
+
+
+global proc ucui_showControllerName(string $ui_textField){
+	
+	string $prefix="ui_Block_";
+	string $selObj[]=`ls -sl`;
+	int $len1=`size $selObj[0]`;
+	int $len2=`size $prefix`;
+	if($len1 > $len2) {
+		if(`substring $selObj[0] 1 $len2` == $prefix) {
+			
+			
+			textFieldGrp -e -text (`substring $selObj[0] ($len2+1) $len1`) $ui_textField;
+		
+		}
+	}
+};
+
+
+global proc ucui_specifyBlockName(string $ui_textField){
+
+	string $prefix="ui_Block_";
+	string $newBlockName=($prefix+`textFieldGrp -q -text $ui_textField`);
+	
+	string $selBlock[]=`ls -sl`;
+	
+	rename $selBlock[0] $newBlockName;
+};
+
+
+
+//Create image blocks
+global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string $group , float $bgImgWidth , float $bgImgHeight){
+
+	global string $userUCUIDataDir;
+	int $i;
+	int $len2=`size "ui_Block_"`;
+	string $blockName;
+
+
+		//setAttr "defaultRenderGlobals.imageFormat" 50;
+		//setAttr -type "string" "defaultRenderGlobals.imfPluginKey" "xpm";
+		// unfortunately, XPM which Maya generated has a poor quality, I have to use BMP instead, then convernt it to XPM.
+		
+		setAttr "defaultRenderGlobals.imageFormat" 20;
+
+	for($i=0;$i<`size $blockList`;$i++){
+
+
+
+		int $len1=`size $blockList[$i]`;
+		
+		$blockName=$blockList[$i];
+		string $type =`getAttr ($blockName+".type")`;
+		string $name =`substring $blockName ($len2+1) $len1`;
+		
+
+		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+		float $blockWidth=`getAttr ($blockName+".scaleX")`;
+		float $blockHeight=`getAttr ($blockName+".scaleY")`;
+		
+		float $blockCoordX=`getAttr ($blockName+".translateX")`;
+		float $blockCoordY=`getAttr ($blockName+".translateY")`;		
+		
+		int $blockImgWidth = floor($blockWidth * $bgImgWidth / $bgBlockWidth);
+		int $blockImgHeight= floor($blockImgWidth * $blockHeight / $blockWidth);
+		
+		setAttr frontShape.filmFit 1;
+		setAttr frontShape.orthographicWidth $blockWidth;
+		setAttr front.translateX $blockCoordX;
+		setAttr front.translateY $blockCoordY;
+
+		setAttr "defaultRenderGlobals.clipFinalShadedColor" 0;
+		setAttr "defaultRenderGlobals.jitterFinalColor" 0;
+
+		setAttr "defaultResolution.deviceAspectRatio" (1.0*$blockImgWidth/$blockImgHeight); 
+		
+		//unfortunately,I have to use deviceAspectRatio, because pixelAspect always gets error results..
+		
+
+		setAttr "defaultResolution.width" $blockImgWidth;
+		setAttr "defaultResolution.height" $blockImgHeight;
+
+		
+		// gen Active image
+		string $filePrefix;
+
+		if($type == "command"){
+			$filePrefix = ($prefix+"_"+$group+"_command_"+$blockName+"_Active");
+		}
+		else {
+			$filePrefix = ($prefix+"_"+$type+"_"+$blockName+"_Active");
+		}
+		setAttr -type "string" defaultRenderGlobals.imageFilePrefix $filePrefix;
+		
+		string $renderedFile = `render -x $blockImgWidth -y $blockImgHeight "front"`;
+
+		int $nameLen=`size $renderedFile`;
+		string $xpmName=`substring $renderedFile 1 ($nameLen-3)`+"xpm";
+
+		system("convert "+$renderedFile+" "+$xpmName);
+		system("mv "+$xpmName+" "+$userUCUIDataDir+"/");
+		
+		// gen Non-Active image
+
+		if($type == "command"){
+			$filePrefix=($prefix+"_"+$group+"_command_"+$blockName);
+		}
+		else {
+			$filePrefix=($prefix+"_"+$type+"_"+$blockName);
+		}
+
+		setAttr -type "string" defaultRenderGlobals.imageFilePrefix $filePrefix;
+		
+		setAttr ($blockName+".visibility") 0;
+		string $renderedFile = `render -x $blockImgWidth -y $blockImgHeight "front"`;
+		setAttr ($blockName+".visibility") 1;
+		
+		int $nameLen=`size $renderedFile`;
+		string $xpmName=`substring $renderedFile 1 ($nameLen-3)`+"xpm";
+
+		system("convert "+$renderedFile+" "+$xpmName);
+		//or nconver, for better quality
+		//system("nconvert -o "+$xpmName+" "+$renderedFile);
+		system("mv "+$xpmName+" "+$userUCUIDataDir+"/");	
+	
+	}
+}
+
+
+
+global proc ucui_generateUIFrameworkData(string $blockList[] , string $prefix, string $group, float $bgImgWidth , float $bgImgHeight){
+
+	global string $userUCUIDataDir;
+	//string $uiMELStript[];
+	string $uiBlock[];
+	string $blockName;
+	//string $objName;
+	//string $cmd;
+	string $type;
+	int $i;
+
+	
+	$blockDataFileName = ( $userUCUIDataDir+"/" + $prefix+"_"+$group+"_block.txt" ); //file_store_normal_block
+	$cmdDataFileName = ( $userUCUIDataDir+"/" + $prefix+"_"+$group+"_cmd.txt" );//file_store_cmd_block	
+
+	$blockFileID=`fopen $blockDataFileName "w"`;
+	$cmdFileID=`fopen $cmdDataFileName "w"`;
+
+	fprint $blockFileID ($prefix+" "+$group+"\n");
+	fprint $cmdFileID ($prefix+" command\n");		
+
+	for($i=0;$i<`size $blockList`;$i++){
+
+
+		$blockName=$blockList[$i];
+		string $type =`getAttr ($blockName+".type")`;
+		string $buffer=`getAttr ($blockName+".container")`;
+		
+
+		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+		
+		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
+		float $bgBlockCoordY=`getAttr blockBackground.translateY`;		
+		
+
+		float $blockWidth=`getAttr ($blockName+".scaleX")`;
+		float $blockHeight=`getAttr ($blockName+".scaleY")`;
+		
+		float $blockCoordX=`getAttr ($blockName+".translateX")`;
+		float $blockCoordY=`getAttr ($blockName+".translateY")`;
+
+
+		int $blockImgWidth = floor($blockWidth * $bgImgWidth / $bgBlockWidth);
+		int $blockImgHeight= floor($blockImgWidth * $blockHeight / $blockWidth);
+
+		
+		//int $blockImageX=abs(($blockCoordX-$blockWidth/2)-($bgBlockCoordX-$bgBlockWidth/2))/$bgBlockWidth*100;
+		//int $blockImageY=100-abs(($blockCoordY-$blockHeight/2)-($bgBlockCoordY-$bgBlockHeight/2))/$bgBlockHeight*100;
+
+		int $blockImageX=2+abs(($blockCoordX-$blockWidth/2)-($bgBlockCoordX-$bgBlockWidth/2))*$bgImgWidth/$bgBlockWidth;	
+		int $blockImageY=2+($bgBlockHeight-abs(($blockCoordY-$blockHeight/2)-($bgBlockCoordY-$bgBlockHeight/2)))*$bgImgHeight/$bgBlockHeight-$blockImgHeight;	
+	
+		
+		if($type == "command" ){
+			fprint $cmdFileID ($blockName+" "+$blockImageX+" "+$blockImageY+" "+($blockImgWidth)+" "+($blockImgHeight)+"\n");
+			fprint $cmdFileID ($buffer+"\n");
+			
+		}
+		else {
+			fprint $blockFileID ($buffer+" "+$blockName+" "+$blockImageX+" "+$blockImageY+" "+($blockImgWidth)+" "+($blockImgHeight)+"\n");
+		}
+	}
+	
+	fclose $blockFileID;	
+	fclose $cmdFileID;
+
+}
+
+
+
+global proc ucui_UIDataConstructionFunc(string $blockList[] ,string $prefix, string $group, float $bgImgWidth , float $bgImgHeight){
+		
+	ucui_renderBlockImage(  $blockList ,  $prefix, $group, $bgImgWidth ,  $bgImgHeight );
+	ucui_generateUIFrameworkData( $blockList , $prefix, $group ,$bgImgWidth ,  $bgImgHeight);
+
+
+}
+
+
+
+global proc uniqueCharacterUIConstructor(){
+	
+global string $userUCUIDataDir;
+$userUCUIDataDir=`getenv "HOME"`+ "/" + "ucData";
+if(!`filetest -d $userUCUIDataDir`) sysFile -makeDir $userUCUIDataDir;	
+
+if(`window  -exists  "uniqueCharacterUIConstrustorWindow"`) showWindow "uniqueCharacterUIConstrustorWindow";
+
+
+global int $blockColorIndex;
+global string $controllerName;
+global string $blockList[];
+global string $blockShadingNodeSG[];
+
+global string $uCharUIConstructorWindowVar;
+global string $w_type;
+global string $w_prefix;
+global string $w_cname;
+global string $w_image;
+global string $w_bscript;
+
+global int $uCharUIConstructorWatchingSelectionJob;
+
+global string $blockN[];
+global string $blockPrefix;
+global string $blockType;
+
+global int $imgW,$imgH;
+global float $imgR;
+
+$imgR=0.05;$imgW=240;$imgH=240;
+
+$blockColorIndex=4;
+$controllerName="noname";
+$blockPrefix="Character";
+$blockType="body";
+
+$uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFitChildren true -title "Unique Character UI Constructor" "uniqueCharacterUIConstrustorWindow"`;
+
+	columnLayout -adjustableColumn true -columnWidth 320 -columnAlign "center" -rowSpacing 5 -columnOffset "both" 3 ;
+	
+		frameLayout -label "Character Properties" -bs "out";
+	
+			columnLayout -columnWidth 320 -columnAlign "center";
+				columnLayout -columnWidth 320 -columnAlign "center";
+					$w_type = 
+						`optionMenuGrp -label "type" 
+						-columnWidth 1 120
+						-columnWidth 2 180
+						-columnAlign 1 "right" 
+						-columnAlign 2 "center" 
+						-changeCommand "$blockType = `optionMenuGrp -q -value $w_type`"
+						`;
+						
+						menuItem -label "body";
+						menuItem -label "head";
+						menuItem -label "hand";
+						menuItem -label "foot";
+						menuItem -label	"object";
+						menuItem -label "widget";
+						menuItem -label "command";
+						
+					$w_prefix = 
+						`textFieldGrp -label "prefix"
+						-columnWidth 1 120 
+						-columnWidth 2 180
+						-columnAlign 1 "right" 
+						-columnAlign 2 "center" 					
+						-text "Character"
+						-changeCommand "$blockPrefix = `textFieldGrp -q -text $w_prefix`"
+						`;
+	
+					$w_image =
+						` intFieldGrp -numberOfFields 2 -label "image W H "
+						-value1 240 
+						-value2 240
+						-changeCommand "$imgW=`intFieldGrp -q -value1 $w_image`;$imgH=`intFieldGrp -q -value2 $w_image`" 
+						`;
+				setParent ..;
+			setParent ..;
+		setParent ..;
+		
+		frameLayout -label "Block Operations" -bs "out";
+			columnLayout -columnWidth 320 -columnAlign "center" -rowSpacing 5;
+				rowLayout -numberOfColumns 2
+					-columnWidth 1 160 
+					-columnWidth 2 160
+					-columnAlign 1 "center" 
+					-columnAlign 2 "center" 			
+					;
+					button -w 160 -label "create background block" -command "$imgW=`intFieldGrp -q -value1 $w_image`;$imgH=`intFieldGrp -q -value2 $w_image`;ucui_createBackgroundBlock($imgW*$imgR,$imgH*$imgR)";
+					button -w 160 -label "render bg block image" -command "ucui_renderBackgroundBlockImage( $imgW, $imgH,  $blockPrefix,  $blockType)";
+				setParent ..;
+
+				rowLayout -numberOfColumns 2
+					-columnWidth 1 160 
+					-columnWidth 2 160
+					-columnAlign 1 "center" 
+					-columnAlign 2 "center" 			
+					;
+				
+					button -w 160 -label "convert selection to blocks" 
+						-command "ucui_convertSelectionToBlocks($blockColorIndex,  $blockShadingNodeSG ,$blockType, $blockList)";
+					
+					button -w 160 -label "CreateShadingNode" -command "$blockShadingNodeSG=ucui_createBlockShader();";
+
+				setParent ..;
+				rowLayout -numberOfColumns 2
+					-columnWidth 1 160 
+					-columnWidth 2 160
+					-columnAlign 1 "center" 
+					-columnAlign 2 "center" 			
+					;
+		
+					button -w 160 -label "mirror selection" -command "ucui_mirrorSelection()";
+					button -w 160 -label "clear blocks and shader" -command "clear $blockList; clear $blockShadingNodeSG";
+				setParent ..;
+				
+				rowLayout -numberOfColumns 2
+					-columnWidth 1 160 
+					-columnWidth 2 160
+					-columnAlign 1 "center" 
+					-columnAlign 2 "center" 			
+					;
+					button -w 160 -label "select blocks to list" -command "$blockN=`ls -sl`"; 
+					button -w 160 -label "link mirrored block to targets" -command "$ucui_LinkMirroredBlockToTargets($blockList, $blockN, `ls -sl`)";
+				setParent ..;
+			setParent ..;
+		setParent ..;
+		
+		frameLayout -label "Block options" -bs "in";
+			
+			columnLayout -rowSpacing 10;
+				rowLayout -numberOfColumns 3
+		
+					-columnWidth 1 240 
+					-columnWidth 2 40
+					-columnWidth 3 40
+					-columnAlign 1 "center" 
+					-columnAlign 2 "center" 
+					-columnAlign 3 "center" 		
+					;
+					$w_cname = 
+						`textFieldGrp -label "Controller\nName"
+						-columnWidth 1 80 
+						-columnWidth 2 160
+						-columnAlign 1 "right" 
+						-columnAlign 2 "center"			
+						-text "Controller"
+						-changeCommand "$controllerName=`textFieldGrp -q -text $w_cname`"
+						`;
+					button -w 40 -label "toBlock" -command "ucui_specifyBlockName($w_cname)";
+					button -w 40 -label "clear" -command "textFieldGrp -e -text \"\" $w_cname";
+					
+				setParent ..;
+				
+				rowLayout -numberOfColumns 6
+					-columnWidth 1 36 
+					-columnWidth 2 56
+					-columnWidth 3 56
+					-columnWidth 4 56
+					-columnWidth 5 56
+					-columnWidth 6 56
+					
+					-columnAlign 1 "left" 
+					-columnAlign 2 "right"
+					-columnAlign 3 "right"
+					-columnAlign 4 "right"
+					-columnAlign 5 "right"
+					-columnAlign 5 "right"
+					;	
+					text " color";
+					iconTextRadioCollection ;
+					iconTextRadioButton -w 48 -label "color1" -image "ColorBlock1.xpm" -st "iconAndTextVertical" -onCommand "$blockColorIndex=0";
+					iconTextRadioButton -w 48 -label "color2" -image "ColorBlock2.xpm" -st "iconAndTextVertical" -onCommand "$blockColorIndex=1";
+					iconTextRadioButton -w 48 -label "color3" -image "ColorBlock3.xpm" -st "iconAndTextVertical" -onCommand "$blockColorIndex=2";
+					iconTextRadioButton -w 48 -label "color4" -image "ColorBlock4.xpm" -st "iconAndTextVertical" -onCommand "$blockColorIndex=3";
+					iconTextRadioButton -w 48 -label "color5" -image "ColorBlock5.xpm" -st "iconAndTextVertical" -onCommand "$blockColorIndex=4" -select ;
+				setParent ..;
+				
+			setParent ..;
+		setParent ..;	
+
+		rowLayout -numberOfColumns 2
+
+			-columnWidth 1 280 
+			-columnWidth 2 40
+			-columnAlign 1 "center" 
+			-columnAlign 2 "center" 
+			;
+			$w_bscript = 
+				`textFieldGrp -label "script"
+				-columnWidth 1 80 
+				-columnWidth 2 200
+				-columnAlign 1 "right" 
+				-columnAlign 2 "center"			
+				-text ""
+				`;
+			button -w 40 -label "clear" -command "textFieldGrp -e -text \"\" $w_bscript";
+			
+		setParent ..;
+			
+		rowLayout -numberOfColumns 2 
+			-columnWidth 1 160 
+			-columnWidth 2 160
+			-columnAlign 1 "center" 
+			-columnAlign 2 "center" 			
+			;
+			button -w 160 -label "create block with controller" 
+				-command "$controllerName=`textFieldGrp -q -text $w_cname`; \
+					ucui_createBlock( 	\
+						$blockColorIndex, \
+						$blockShadingNodeSG,  \
+						$blockType,  \
+						$controllerName, \
+						`textFieldGrp -q -text $w_bscript`, \
+						$blockList \
+					)";
+						 	
+			button -w 160 -label "duplicate" 
+				-command "duplicate -rr";
+
+		setParent ..;
+
+		
+		frameLayout -label "Process Operations" -bs "out";	
+		
+			rowLayout -numberOfColumns 2 
+				-columnWidth 1 160 
+				-columnWidth 2 160
+				-columnAlign 1 "center" 
+				-columnAlign 2 "center" 			
+				;
+				button -w 160 -label "write UI data" 
+					-command "$blockList=verifyBlockList($blockList); \
+						ucui_UIDataConstructionFunc(	\
+							$blockList , \
+							$blockPrefix,  \
+							$blockType , \
+							$imgW ,  $imgH \
+						)";
+				button -w 160 -label "close" 
+					-command "deleteUI $uCharUIConstructorWindowVar;clear $blockList; clear $blockShadingNodeSG";
+			setParent ..;
+		setParent ..;
+	setParent ..;
+showWindow;
+
+
+$uCharUIConstructorWatchingSelectionJob = `scriptJob -parent $w_cname -replacePrevious -e "SelectionChanged" "ucui_showControllerName($w_cname)"`;
+
+
+}
+
+
+
