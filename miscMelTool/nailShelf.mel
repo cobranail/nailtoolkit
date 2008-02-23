@@ -2,6 +2,11 @@
 //0.2
 //0.3 rewrite all.
 //0.4 rewrite toolbar,add camera selector
+/***
+2008-02-23
+	增加ui元素控制
+
+***/
 
 global proc nailShelf(){
 
@@ -61,8 +66,24 @@ window -w 220 -h 480 -s 0 -rtf 0 -title "Nail Shelf" nailShelfWindow;
 				$bform;
 			shelfLayout -w 220 -h 120 nailShelfCommon;
 		setParent ..;
-		columnLayout -rs 2;
-			separator -h 2 -w 210;
+		columnLayout -rs 2 -adj 1;
+			separator -h 5;
+			gridLayout -nc 5 -cwh 40 21;
+				button -l "SL" -c "ToggleStatusLine";
+				button -l "SH" -c "ToggleShelf";
+				button -l "TS" -c "ToggleTimeSlider";
+				button -l "RS" -c "ToggleRangeSlider";
+				button -l "CL" -c "ToggleCommandLine";
+				button -l "HL" -c "ToggleHelpLine";
+				button -l "TB" -c "ToggleToolbox";
+				button -l "AE" -c "ToggleAttributeEditor";
+				button -l "TO" -c "ToggleToolSettings";
+				button -l "CH" -c "ToggleChannelsLayers";
+				
+				
+			setParent ..;
+			separator -h 5;
+			
 			shelfTabLayout
 			    -image "smallTrash.xpm"
 			    -imageVisible true nailShelfTab;
@@ -88,7 +109,7 @@ window -w 220 -h 480 -s 0 -rtf 0 -title "Nail Shelf" nailShelfWindow;
 	for($i=0;$i<`size $nailShelfTab`;$i++){
 		
 		setParent nailShelfTab;
-		shelfLayout -w 220 -h 320 $nailShelfTab[$i];
+		shelfLayout -w 220 -h 260 $nailShelfTab[$i];
 		nailLoadShelf($nailShelfTab[$i]);
 	}
 	nailCameraList($nsCameraOptionMenu);
@@ -131,7 +152,7 @@ global proc nailNewShelf(){
 	if(`size $newShelf` > 0  && isValidString($newShelf, "([a-zA-Z]+)([a-zA-Z0-9_])*")) {
 		optionVar -sva "var_nailShelfTab" $newShelf;
 		setParent nailShelfTab;
-			shelfLayout -w 220 -h 240 $newShelf;
+			shelfLayout -w 220 -h 200 $newShelf;
 	}	
 }
 
