@@ -1,0 +1,12 @@
+#nail Magic Cube Script usage.
+
+= Introduction =
+
+nailMagicCubeScript可以用来创建一个动画的魔方。
+
+
+= Usage =
+
+  * 
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages
