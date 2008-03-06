@@ -1,5 +1,9 @@
-//by liu sheng jie (cobranail@gmail.com)
-//2008-01-15
+/***
+nail Magic Cube
+
+by Liu ShengJie (cobranail@gmail.com)
+2008-01-15
+***/
 
 global proc nmc_createCubes(string $cubes[],int $c){
 	
@@ -108,7 +112,7 @@ global proc nmc_rotateCubes (string $cubeObj[],int $axis, int $dir, int $rframes
 		select -add $obj;
 	}
 	SetKeyRotate;
-	
+	select -r $refObj;
 }
 
 global proc nailMagicCube(){
