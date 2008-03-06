@@ -1,6 +1,10 @@
 /***
 nail Magic Cube
 
+usage:
+	1.source this script
+	2.execute "nailMagicCube" in ScriptEditor 
+
 by Liu ShengJie (cobranail@gmail.com)
 2008-01-15
 ***/
