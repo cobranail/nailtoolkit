@@ -5,8 +5,12 @@
 nailMagicCubeScript可以用来创建一个动画的魔方。
 
 
+
 = Usage =
 
+http://www.tudou.com/programs/view/O0Or1zI3_w8/
+
   * 
-  * Headings, paragraphs, and lists
-  * Automatic links to other wiki pages
+  *
+  *
+
