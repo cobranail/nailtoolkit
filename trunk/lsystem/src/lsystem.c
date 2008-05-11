@@ -153,7 +153,7 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
 	char *p;
 	p=str;
 	float step = 1;
-	float da = M_PI_2/2.0,dda=0;;
+	float da = M_PI_2,dda=0;;
 	float a[2]={5,5};
 	float b[2]={500,500};
 	float sp[2],ep[2];
@@ -203,7 +203,7 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
 			np->spx=state.x;
 			np->spy=state.y;
 
-			step=(random()%100)/20.0+1;
+			//step=(random()%100)/20.0+1;
 			
 			state.x+=step*cos(state.agl);
 			state.y+=step*sin(state.agl);
@@ -213,11 +213,15 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
 
 			np->drawable=1;
 
+			np->color[0]=255;
+			np->color[1]=255;
+			np->color[2]=255;
+			
 			SLIST_FOREACH(nptmp, &line, entries) {
 				//intersection=intersect(np, nptmp, poi);
 				if(intersect(np, nptmp, poi)==1) { //如果相交
 
-
+					puts("intersect!");
 					np->epx=poi[0];
 					np->epy=poi[1];
 
@@ -236,6 +240,13 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
 						nptmp->epx=poi[0];
 						nptmp->epy=poi[1];
 						
+						nptmp->color[0]=0;
+						nptmp->color[1]=255;
+						nptmp->color[2]=0;
+						
+						npnew->color[0]=255;
+						npnew->color[1]=0;
+						npnew->color[2]=0;
 						
 						{	SLIST_INSERT_AFTER(nptmp, npnew, entries);}
 						i++;
@@ -334,10 +345,7 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
 
 
  	 
- 	  /* Allocate the color white (red, green and blue all maximum). */
- 	  int white = gdImageColorAllocate(im, 255, 255, 255);  
- 	 
- 	  gdImageSetAntiAliased(im, white); 
+
      
  	SLIST_FOREACH(np, &line, entries) {
  	    if (np->drawable==1 ) {
@@ -349,6 +357,11 @@ void drawFigure(gdImagePtr im, int width, int height, char *str){
  	    	//puts("checkpoint 3");
  	    	//printf("sp: %f , %f , %f , %f\n",ep[0],np->spx,sp[1],np->spy);
 
+ 	  	  /* Allocate the color white (red, green and blue all maximum). */
+ 	  	  int white = gdImageColorAllocate(im, np->color[0], np->color[1], np->color[2]);  
+ 	  	 
+ 	  	  gdImageSetAntiAliased(im, white); 
+ 	    	
  	 	  /* Draw a line from the upper left to the lower right,
  	 	    using white color index. */
  	 	  gdImageLine(im, (int)sp[0], (int)sp[1], (int)ep[0], (int)ep[1], gdAntiAliased);  
@@ -451,14 +464,14 @@ int main(int argc, char *argv[]) {
 	
 	char *str="F";
 	char *rule1='F';
-	char *rule2="FF-[-F+F+F]+[+F-F-F]";
+	char *rule2="F[+FFF]F[-FFF]F";
 	char *outstr;
 	char *tmp;
 	
 	outstr=(char*)malloc(sizeof(char)*(strlen(str)+1));
 	strcpy(outstr,str);
 	int i=0;
-	while(i<5) {
+	while(i<3) {
 	/*	if(outstr!=NULL){
 			free(outstr);
 			outstr=NULL;
