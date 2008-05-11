@@ -28,6 +28,10 @@
 <option id="macosx.c.link.option.noshared.905751339" name="No shared libraries (-static)" superClass="macosx.c.link.option.noshared"/>
 <option id="macosx.c.link.option.libs.349048385" name="Libraries (-l)" superClass="macosx.c.link.option.libs" valueType="libs">
 <listOptionValue builtIn="false" value="tiff"/>
+<listOptionValue builtIn="false" value="gd"/>
+<listOptionValue builtIn="false" value="png"/>
+<listOptionValue builtIn="false" value="jpeg"/>
+<listOptionValue builtIn="false" value="z"/>
 <listOptionValue builtIn="false" value="m"/>
 </option>
 <option id="macosx.c.link.option.paths.831553418" name="Library search path (-L)" superClass="macosx.c.link.option.paths" valueType="libPaths">
