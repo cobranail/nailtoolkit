@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <tiffio.h>
+#include <gd.h>
 #include "queue.h"
 
 
@@ -148,12 +148,12 @@ void drawLine(char *buffer, int w, int h, float sp[], float ep[], char rgb[]){
 
 }
 
-void drawFigure(char *raster, int width, int height, char *str){
+void drawFigure(gdImagePtr im, int width, int height, char *str){
 	
 	char *p;
 	p=str;
 	float step = 1;
-	float da = M_PI_2,dda=0;;
+	float da = M_PI_2/2.0,dda=0;;
 	float a[2]={5,5};
 	float b[2]={500,500};
 	float sp[2],ep[2];
@@ -203,6 +203,8 @@ void drawFigure(char *raster, int width, int height, char *str){
 			np->spx=state.x;
 			np->spy=state.y;
 
+			step=(random()%100)/20.0+1;
+			
 			state.x+=step*cos(state.agl);
 			state.y+=step*sin(state.agl);
 
@@ -261,7 +263,7 @@ void drawFigure(char *raster, int width, int height, char *str){
 				i++;
 			}
 			
-
+			//printf("i=%d\n",i);
 		}
     	 
     	 else if (*p=='f') {
@@ -290,11 +292,11 @@ void drawFigure(char *raster, int width, int height, char *str){
     	 
     	 else if (*p=='+') {
     		 
-    		 state.agl+=(da+dda);//(da+(float)((random () % 100)-0)/100.0);
+    		 state.agl+=(da+(float)((random () % 10)-0)/100.0);
 
     	 }
     	 else if (*p=='-') {
-    		 state.agl-=(da+dda);//(da+(float)((random () % 100)-0)/100.0);
+    		 state.agl-=(da+(float)((random () % 10)-0)/100.0);
 
     	 }
     	 else if (*p=='[') {
@@ -328,7 +330,14 @@ void drawFigure(char *raster, int width, int height, char *str){
      float maxbound=max((bnd.xmax-bnd.xmin),(bnd.ymax-bnd.ymin));
      float offsetx=(maxbound-(bnd.xmax-bnd.xmin))/2.0;
      float offsety=(maxbound-(bnd.ymax-bnd.ymin))/2.0;
-     
+ 
+
+
+ 	 
+ 	  /* Allocate the color white (red, green and blue all maximum). */
+ 	  int white = gdImageColorAllocate(im, 255, 255, 255);  
+ 	 
+ 	  gdImageSetAntiAliased(im, white); 
      
  	SLIST_FOREACH(np, &line, entries) {
  	    if (np->drawable==1 ) {
@@ -339,65 +348,67 @@ void drawFigure(char *raster, int width, int height, char *str){
  	    	ep[1]=(fabs(bnd.ymax)-(np->epy-offsety))*(height-1)/maxbound;
  	    	//puts("checkpoint 3");
  	    	//printf("sp: %f , %f , %f , %f\n",ep[0],np->spx,sp[1],np->spy);
- 	    	drawLine(raster, width, height, sp, ep, rgb);
+
+ 	 	  /* Draw a line from the upper left to the lower right,
+ 	 	    using white color index. */
+ 	 	  gdImageLine(im, (int)sp[0], (int)sp[1], (int)ep[0], (int)ep[1], gdAntiAliased);  
  	    }
  	}
  	//printf("%f, %f, %f , %f\n",bnd.xmax,bnd.ymax,bnd.xmin,bnd.ymin);
-	printf("i=%d\n",i);
+	//printf("i=%d\n",i);
 }
 
 
-void writetiff(char *str){
-  TIFF *output;
-  uint32 width, height;
-  char *raster;
-  
-  char rgb[3];
 
-  // Open the output image
-  if((output = TIFFOpen("output.tif", "w")) == NULL){
-    fprintf(stderr, "Could not open outgoing image\n");
-    exit(42);
-  }
-  // We need to know the width and the height before we can malloc
-  width = 1024;
-  height = 1024;
-  if((raster = (char *) malloc(sizeof(char) * width * height * 3)) == NULL){
-    fprintf(stderr, "Could not allocate enough memory\n");
-    exit(42);
-  }
-  // Magical stuff for creating the image
-  
-  //*raster=255;
-  //*(raster+1)=255;
-  //*(raster+2)=255;
-  
-  	rgb[0]=0;
-	rgb[1]=255;
-	rgb[2]=0;
-  
-	drawFigure(raster, width, height, str);
 
+void writegd(char *str){
 	
-  // Write the tiff tags to the file
-  TIFFSetField(output, TIFFTAG_IMAGEWIDTH, width);
-  TIFFSetField(output, TIFFTAG_IMAGELENGTH, height);
-  TIFFSetField(output, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-  TIFFSetField(output, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
-  TIFFSetField(output, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-  TIFFSetField(output, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
-  TIFFSetField(output, TIFFTAG_BITSPERSAMPLE, 8);
-  TIFFSetField(output, TIFFTAG_SAMPLESPERPIXEL, 3);
-  // Actually write the image
-  if(TIFFWriteEncodedStrip(output, 0, raster, width * height * 3) == 0){
-    fprintf(stderr, "Could not write image\n");
-    exit(42);
-  }
-  TIFFClose(output);
-  
+	
+	 
+	
+	  /* Declare the image */
+	  gdImagePtr im, brush;
+	  /* Declare output files */
+	  FILE *pngout, *jpegout;
+	  /* Declare color indexes */
+	  int black;
+	  int white;
+	 
+	  int width=1024;
+	  int height=1024;
+	  
+	  /* Allocate the image: 64 pixels across by 64 pixels tall */
+	  im = gdImageCreate(width, height);
+ 	  /* Allocate the color black (red, green and blue all minimum).
+ 	    Since this is the first color in a new image, it will
+ 	    be the background color. */ 
+ 	  black = gdImageColorAllocate(im, 0, 0, 0);  	
+		drawFigure(im, width, height, str);
+	 
+	  /* Open a file for writing. "wb" means "write binary", important
+	    under MSDOS, harmless under Unix. */
+	  pngout = fopen("test.png", "wb");
+	 
+	  /* Do the same for a JPEG-format file. */
+	  jpegout = fopen("test.jpg", "wb");
+	 
+	  /* Output the image to the disk file in PNG format. */
+	  gdImagePng(im, pngout);
+	 
+	  /* Output the same image in JPEG format, using the default
+	    JPEG quality setting. */
+	  gdImageJpeg(im, jpegout, -1);
+	 
+	  /* Close the files. */
+	  fclose(pngout);
+	  fclose(jpegout);
+	 
+	  /* Destroy the image in memory. */
+	  gdImageDestroy(im);
+	
+	
+
 }
-
-
 
 char * replaceString(char *str1, char *str2, char *str){
 	char *tmpstr=NULL;
@@ -438,9 +449,9 @@ char * replaceString(char *str1, char *str2, char *str){
 
 int main(int argc, char *argv[]) {
 	
-	char *str="F+F+F+F";
+	char *str="F";
 	char *rule1='F';
-	char *rule2="F[+F][--F]F";
+	char *rule2="FF-[-F+F+F]+[+F-F-F]";
 	char *outstr;
 	char *tmp;
 	
@@ -462,6 +473,6 @@ int main(int argc, char *argv[]) {
 		i++;
 	}
 	
-	writetiff(outstr);
+	writegd(outstr);
 	return EXIT_SUCCESS;
 }
