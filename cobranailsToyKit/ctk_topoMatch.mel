@@ -1,0 +1,221 @@
+/***
+ctk_topoMatch
+
+20080706
+	mt_fixVtxOrder更名为ctk_topoMath
+	归入ctk
+
+***/
+
+global proc ctk_exportSourceInfo(){
+	string $srcObjName=stringArrayToString(`ls -sl -hd 1`,"");
+	int $fn[]=`polyEvaluate -face`;
+	string $srcFaces=($srcObjName+".f[0:"+($fn[0]-1)+"]");
+	
+	string $srcObjInfo[]=`polyInfo -fv $srcFaces`;
+	string $line,$sparts;
+	string $buffer[];
+	int $parts;
+	
+	$srcObjFile=(`getenv "TMPDIR"`+"ctk_sourceObjectInfo.txt");
+	$srcFileID=`fopen $srcObjFile "w"`;
+	for($line in $srcObjInfo){
+		$parts=`tokenize $line ": " $buffer`;
+		$sparts=$parts-3;
+		stringArrayRemoveAtIndex(0, $buffer);
+		stringArrayInsertAtIndex(1, $buffer, $sparts);
+		$line=stringArrayToString($buffer, " ");
+		fprint $srcFileID $line;
+	}
+	fclose $srcFileID;
+}
+
+global proc ctk_exportDestinationInfo(){
+	string $destObjName=stringArrayToString(`ls -sl -hd 1`,"");
+	int $fn[]=`polyEvaluate -face`;
+	string $destFaces=($destObjName+".f[0:"+($fn[0]-1)+"]");
+	string $destObjInfo[]=`polyInfo -fv $destFaces`;
+	string $line,$sparts;
+	string $buffer[];
+	int $parts;
+	
+	$destObjFile=(`getenv "TMPDIR"`+"ctk_destinationObjectInfo.txt");
+	$destFileID=`fopen $destObjFile "w"`;
+	for($line in $destObjInfo){
+		$parts=`tokenize $line ": " $buffer`;
+		$sparts=$parts-3;
+		stringArrayRemoveAtIndex(0, $buffer);
+		stringArrayInsertAtIndex(1, $buffer, $sparts);
+		$line=stringArrayToString($buffer, " ");
+		fprint $destFileID $line;
+	}
+	fclose $destFileID;
+}
+
+global proc ctk_exportMapperInfo(int $srcFace,int $srcVtx,int $destFace,int $destVtx){
+
+
+    string $buffer=$srcFace+" "+$srcVtx+" "+ $destFace +" "+ $destVtx+" ";
+	
+	$mapperFile=(`getenv "TMPDIR"`+"ctk_mapper.txt");
+	$mapperFileID=`fopen $mapperFile "w"`;
+	fprint $mapperFileID $buffer;
+	fclose $mapperFileID;
+}
+
+
+global proc ctk_importMapperInfo(){
+    
+    vector $pos;
+    string $obj[]=`ls -sl`;
+    string $buffer[];
+    int $i=0;
+    int $sv;
+    int $dv;
+    $mapperFile=(`getenv "TMPDIR"`+"ctk_outmapper.txt");
+    $fileID=`fopen $mapperFile "r"`;
+    string $nextLine = `fgetline $fileID`;
+    while ( size( $nextLine ) > 0 ) {
+        tokenize $nextLine $buffer;
+        $sv=$buffer[0];
+        $dv=$buffer[1];
+        $pos=`xform -q -os -t ($obj[1]+".vtx["+$dv+"]")`;
+        xform -os -t ($pos.x) ($pos.y) ($pos.z) ($obj[0]+".vtx["+$sv+"]");
+
+        $nextLine = `fgetline $fileID`;
+    }
+    fclose $fileID;
+
+}
+
+global proc ctk_AfixVtxOrder(){
+    
+    global string $ctk_shapeMatcherLocation;
+    
+    string $obj[]=`ls -sl -hd 2`;
+	string $line,$sparts;
+	string $buffer[];
+	int $parts;
+
+    //export src obj info
+    int $fn[]=`polyEvaluate -face $obj[0]`;
+	string $srcFaces=($obj[0]+".f[0:"+($fn[0]-1)+"]");
+	string $srcObjInfo[]=`polyInfo -fv $srcFaces`;
+	
+	$srcObjFile=(`getenv "TMPDIR"`+"ctk_sourceObjectInfo.txt");
+	$srcFileID=`fopen $srcObjFile "w"`;
+	for($line in $srcObjInfo){
+		$parts=`tokenize $line ": " $buffer`;
+		$sparts=$parts-3;
+		stringArrayRemoveAtIndex(0, $buffer);
+		stringArrayInsertAtIndex(1, $buffer, $sparts);
+		$line=stringArrayToString($buffer, " ");
+		fprint $srcFileID $line;
+	}
+	fclose $srcFileID;
+	
+
+    //export dest obj info	
+	int $fn[]=`polyEvaluate -face $obj[1]`;
+	string $destFaces=($obj[1]+".f[0:"+($fn[0]-1)+"]");
+	string $destObjInfo[]=`polyInfo -fv $destFaces`;
+	
+	$destObjFile=(`getenv "TMPDIR"`+"ctk_destinationObjectInfo.txt");
+	$destFileID=`fopen $destObjFile "w"`;
+	for($line in $destObjInfo){
+		$parts=`tokenize $line ": " $buffer`;
+		$sparts=$parts-3;
+		stringArrayRemoveAtIndex(0, $buffer);
+		stringArrayInsertAtIndex(1, $buffer, $sparts);
+		$line=stringArrayToString($buffer, " ");
+		fprint $destFileID $line;
+	}
+	fclose $destFileID;
+	
+	
+	//run shapeMatcher
+	string $shapeMatcher=`textField -q -text $ctk_shapeMatcherLocation`;
+
+	   
+	   string $cmd="\'"+$shapeMatcher+"\' \'"+$srcObjFile+"\' \'"+$destObjFile+"\' \'"+(`getenv "TMPDIR"`+"ctk_mapper.txt")+"\' \'"+(`getenv "TMPDIR"`+"ctk_outmapper.txt\'");
+	   print $cmd;
+	   exec($cmd);
+
+	
+	
+	
+	
+	//import vtx mapper
+	vector $pos;
+    int $i=0;
+    int $sv;
+    int $dv;
+    $mapperFile=(`getenv "TMPDIR"`+"ctk_outmapper.txt");
+    $fileID=`fopen $mapperFile "r"`;
+    string $nextLine = `fgetline $fileID`;
+    while ( size( $nextLine ) > 0 ) {
+        tokenize $nextLine $buffer;
+        $sv=$buffer[0];
+        $dv=$buffer[1];
+        $pos=`xform -q -os -t ($obj[1]+".vtx["+$dv+"]")`;
+        xform -os -t ($pos.x) ($pos.y) ($pos.z) ($obj[0]+".vtx["+$sv+"]");
+
+        $nextLine = `fgetline $fileID`;
+    }
+    fclose $fileID;	
+	
+}
+
+global proc ctk_topoMatch(){
+    global string $ctk_shapeMatcherLocation;
+    string $shapeMatcherLocation=`getenv "TMPDIR"`+"shapeMatcher";
+    if(`window -exists "ctk_topoMatchWindow"`){
+        showWindow  "ctk_topoMatchWindow";
+    }
+    else {
+        window -title "ctk_topoMatch export info" ctk_topoMatchWindow;
+            columnLayout -co "both" 10 -rs 5;
+                
+                text -l "locate shapeMatcher";
+                $ctk_shapeMatcherLocation=`textField -w 240 -text ($shapeMatcherLocation) ctk_shapeMatcherLocationEntry`;
+            
+                gridLayout -numberOfColumns 2 -cellWidth 120 -cellHeight 20;
+                    text -label "original face id";
+                    text -label "target face id";
+                    intField -value 0 ctk_topoMatch_originalFaceIDEntry;
+                    intField -value 0 ctk_topoMatch_targetFaceIDEntry;
+                    text -label "original vertex id";
+                    text -label "target vertex id";    
+                    intField -value 0 ctk_topoMatch_originalVtxIDEntry;
+                    intField -value 0 ctk_topoMatch_targetVtxIDEntry;
+                setParent ..;
+
+           
+                frameLayout -l "manually" -cll 1 -cl 1 -bv 0;
+                    columnLayout -rs 1;    
+                        button -w 240 -l "export mapper info" -c "ctk_exportMapperInfo( `intField -q -value ctk_topoMatch_originalFaceIDEntry`,`intField -q -value ctk_topoMatch_originalVtxIDEntry`,`intField -q -value ctk_topoMatch_targetFaceIDEntry`,`intField -q -value ctk_topoMatch_targetVtxIDEntry`)";
+                        button -w 240 -l "export src info" -c "ctk_exportSourceInfo()";
+                        button -w 240 -l "export dest info" -c "ctk_exportDestinationInfo()";
+                        button -w 240 -l "fix vertex" -c "ctk_importMapperInfo()";
+                    setParent ..;
+                setParent ..;
+                
+                frameLayout -l "help" -cll 1 -cl 1 -bv 0;
+                    columnLayout -rs 1 -cal "left";
+                        text -w 240 -l "1. set shapeMatcher's loacation."; 
+                        text -w 240 -l "2. set faceIDs and vertexIDs that you want to match.";
+                        text -w 240 -l "3. select 2 meshes, 1st one as original model, 2nd one as target model.";
+                        text -w 240 -l "4. click export mapper info, then click fix it.";
+                        text -w 240 -l "5. for more infomation, please check readme.pdf.";
+                    setParent ..;
+                setParent ..;                
+                separator -w 240;
+                button -w 240 -l "export mapper info" -c "ctk_exportMapperInfo( `intField -q -value ctk_topoMatch_originalFaceIDEntry`,`intField -q -value ctk_topoMatch_originalVtxIDEntry`,`intField -q -value ctk_topoMatch_targetFaceIDEntry`,`intField -q -value ctk_topoMatch_targetVtxIDEntry`)";
+                button -w 240 -l "Fix it" -c "ctk_AfixVtxOrder()";
+        
+        showWindow;
+        
+    
+    }
+
+}

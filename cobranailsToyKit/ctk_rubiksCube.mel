@@ -1,15 +1,20 @@
 /***
-nail Magic Cube
+nail Rubik's Cube
 
 usage:
 	1.source this script
-	2.execute "nailMagicCube" in ScriptEditor 
+	2.execute "ctk_rubiksCube" in ScriptEditor 
 
 by Liu ShengJie (cobranail@gmail.com)
 2008-01-15
+
+20080706
+	更名为rubik's cube
+	归入cobranail's toy kit
+
 ***/
 
-global proc nmc_createCubes(string $cubes[],int $c){
+global proc ctk_nrc_createCubes(string $cubes[],int $c){
 	
 	float $n=$c-1;
 	string $cube[];
@@ -30,7 +35,7 @@ global proc nmc_createCubes(string $cubes[],int $c){
 	
 }
 
-global proc nmc_rotateCubes (string $cubeObj[],int $axis, int $dir, int $rframes, int $mode) {
+global proc ctk_nrc_rotateCubes (string $cubeObj[],int $axis, int $dir, int $rframes, int $mode) {
 	
 	autoKeyframe -state true;
 	
@@ -119,47 +124,47 @@ global proc nmc_rotateCubes (string $cubeObj[],int $axis, int $dir, int $rframes
 	select -r $refObj;
 }
 
-global proc nailMagicCube(){
+global proc ctk_rubiksCube(){
 
-global string $nmc_cubes[];
+global string $ctk_nrc_cubes[];
 	
-if(`window -exists "nailMagicCubeWindow"`) showWindow nailMagicCubeWindow;
+if(`window -exists "ctk_rubiksCubeWindow"`) showWindow ctk_rubiksCubeWindow;
 else {
 	
 
 
-	window -rtf 1 -title "cobranail's Magic Cubes" nailMagicCubeWindow;
+	window -rtf 1 -title "cobranail's RubiksCubes" ctk_rubiksCubeWindow;
 		frameLayout -mw 3 -mh 3 -lv 0 -bv 0;
 			columnLayout -rs 3 -adj 1;
 				intSliderGrp -label "grid" -field true
 					-minValue 2 -maxValue 10
 					-fieldMinValue 2 -fieldMaxValue 10
-					-value 4 nailMagicCubeGridWidget;
+					-value 4 ctk_rubiksCubeGridWidget;
 				separator;
-				button -l "Create Cubes" -c "nmc_createCubes($nmc_cubes,`intSliderGrp -q -value nailMagicCubeGridWidget`);";
+				button -l "Create Cubes" -c "ctk_nrc_createCubes($ctk_nrc_cubes,`intSliderGrp -q -value ctk_rubiksCubeGridWidget`);";
 				
 				separator -h 10;
 				
 				intSliderGrp -label "frames" -field true
 					-minValue 3 -maxValue 240
 					-fieldMinValue 3 -fieldMaxValue 240
-					-value 24 nailMagicCubeFramesWidget;
+					-value 24 ctk_rubiksCubeFramesWidget;
 				intSliderGrp -label "key mode" -field true
 					-minValue 0 -maxValue 0
 					-fieldMinValue 0 -fieldMaxValue 0
-					-value 0 nailMagicCubeModeWidget;					
+					-value 0 ctk_rubiksCubeModeWidget;					
 				separator -h 5;
-				button -l "X + 90" -c "nmc_rotateCubes ($nmc_cubes,0, 1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
-				button -l "X - 90" -c "nmc_rotateCubes ($nmc_cubes,0, -1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
+				button -l "X + 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,0, 1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
+				button -l "X - 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,0, -1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
 				separator -h 2;
-				button -l "Y + 90" -c "nmc_rotateCubes ($nmc_cubes,1, 1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
-				button -l "Y - 90" -c "nmc_rotateCubes ($nmc_cubes,1, -1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
+				button -l "Y + 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,1, 1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
+				button -l "Y - 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,1, -1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
 				separator -h 2;
-				button -l "Z + 90" -c "nmc_rotateCubes ($nmc_cubes,2, 1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
-				button -l "Z - 90" -c "nmc_rotateCubes ($nmc_cubes,2, -1, `intSliderGrp -q -value nailMagicCubeFramesWidget`, `intSliderGrp -q -value nailMagicCubeModeWidget`)";
+				button -l "Z + 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,2, 1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
+				button -l "Z - 90" -c "ctk_nrc_rotateCubes ($ctk_nrc_cubes,2, -1, `intSliderGrp -q -value ctk_rubiksCubeFramesWidget`, `intSliderGrp -q -value ctk_rubiksCubeModeWidget`)";
 	
 	
-	window -e -wh 100 100 nailMagicCubeWindow;
+	window -e -wh 100 100 ctk_rubiksCubeWindow;
 	showWindow;
 }
 	
