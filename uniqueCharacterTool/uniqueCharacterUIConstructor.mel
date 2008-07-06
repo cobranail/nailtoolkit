@@ -37,15 +37,21 @@ changelog:
 	所有的"Actor"都更名为"Character"
 	变量和函数更名，加入ucui_前缀，使其看起来更直观
 	
+20080218
+	修改block的尺寸算法，统一用整数，避免blocker里出现偏移
+20080706
+	改进block尺寸算法
+	清理代码
+	
 
 ***/
 
 global proc ucui_createBackgroundBlock(float $vWidth, float $vHeight){
 	
 	if(!`objExists "blockBackground"`){
-		polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name "blockBackground";
+		polyCreateFacet -ch off -tx 1 -s 1 -p 0 0 0 -p 0 -1 0 -p 1 -1 0 -p 1 0 0 -name "blockBackground";
 	
-		setAttr .translateX 0;
+		setAttr .translateX (-$vWidth/2);
 		setAttr .translateY ($vHeight/2);
 		setAttr .translateZ -30;
 	
@@ -68,11 +74,16 @@ global proc ucui_renderBackgroundBlockImage(float $imgWidth, float $imgHeight, s
 		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
 		float $bgBlockCoordY=`getAttr blockBackground.translateY`;
 		
+		//setAttr blockBackground.scaleX $bgBlockWidth;
+		//getAttr blockBackground.scaleY $bgBlockHeight;
+		//getAttr blockBackground.translateX $bgBlockCoordX;
+		//getAttr blockBackground.translateY $bgBlockCoordY;
+		
 
 		setAttr frontShape.orthographicWidth $bgBlockWidth;
 		setAttr frontShape.filmFit 1;
-		setAttr front.translateX $bgBlockCoordX;
-		setAttr front.translateY $bgBlockCoordY;
+		setAttr front.translateX ($bgBlockCoordX+$bgBlockWidth/2);
+		setAttr front.translateY ($bgBlockCoordY-$bgBlockHeight/2);
 
 		
 		setAttr "defaultRenderGlobals.clipFinalShadedColor" 0;
@@ -114,8 +125,10 @@ global proc ucui_createBlock(int $colorIndex, string $shadingNodeSG[], string $t
 	if(`size $name`>0) {
 	
 					
-		string $blockName[] = `polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name ("ui_Block_"+$name)`;
-
+		//string $blockName[] = `polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name ("ui_Block_"+$name)`;
+		
+		string $blockName[] =`polyCreateFacet -ch off -tx 1 -s 1 -p 0 0 0 -p 0 -1 0 -p 1 -1 0 -p 1 0 0 -name ("ui_Block_"+$name)`;
+		
 		addAttr -ln "type" -dt "string" $blockName[0];
 		addAttr -ln "container" -dt "string" $blockName[0];
 
@@ -166,13 +179,13 @@ global proc ucui_convertSelectionToBlocks(int $colorIndex, string $shadingNodeSG
 	
 		float $coord[]=`xform -q -scalePivot -ws $selObj[$i]`;
 			
-		string $blockName[] = `polyPlane -ch off -o on -sw 1 -sh 1 -cuv 2 -ax 0 0 1 -name ("ui_Block_"+$selObj[$i])`;
+		string $blockName[] = `polyCreateFacet -ch off -tx 1 -s 1 -p 0 0 0 -p 0 -1 0 -p 1 -1 0 -p 1 0 0  -name ("ui_Block_"+$selObj[$i])`;
 
 		addAttr -ln "type" -dt "string" $blockName[0];
 		addAttr -ln "container" -dt "string" $blockName[0];
 	
-		setAttr .translateX $coord[0];
-		setAttr .translateY $coord[1];
+		setAttr .translateX ($coord[0]-$bgBlockWidth/10);
+		setAttr .translateY ($coord[1]+$bgBlockWidth/10);
 	
 		setAttr .scaleX ($bgBlockWidth/5);
 		setAttr .scaleY ($bgBlockWidth/5);
@@ -190,9 +203,10 @@ global proc ucui_convertSelectionToBlocks(int $colorIndex, string $shadingNodeSG
 
 
 
-global proc string[] ucui_createBlockShader(){
+global proc ucui_createBlockShader(){
 	
-	string $shadingNodeSG[];
+	global string $blockShadingNodeSG[];
+	global string $blockShadingNode[];
 	string $shader;
 	string $texture;
 	
@@ -201,36 +215,32 @@ global proc string[] ucui_createBlockShader(){
 	int $i;
 	vector $rgb;
 	for($i=0;$i<4;$i++){
-		$shader = `shadingNode -asShader surfaceShader -name ("blockShading"+($i+1))`;
+		$shader = `shadingNode -asShader lambert -name ("blockShading"+($i+1))`;
 		vector $rgb = `hsv_to_rgb <<(1.0/4*($i+1)),.5,1>>`;
-		//setAttr ($shader+".color") -type double3 ($rgb.x) ($rgb.y) ($rgb.z);
-		//setAttr ($shader+".transparency") -type double3 0.78 0.85 0.85;
-		//setAttr ($shader+".incandescence") -type double3 .1 .1 .1;
-		//setAttr ($shader+".ambientColor") -type double3 1 1 1;
-		//setAttr ($shader+".diffuse")  1;
-		$texture=`shadingNode -asTexture grid`;
-		setAttr ($texture+".uWidth") 0.05;
-		setAttr ($texture+".lineColor") -type double3 0 0 0 ;
-		setAttr ($texture+".fillerColor") -type double3 ($rgb.x) ($rgb.y) ($rgb.z) ;
+		setAttr ($shader+".color") -type double3 ($rgb.x) ($rgb.y) ($rgb.z);
+		setAttr ($shader+".transparency") -type double3 0.91 0.91 0.91;
+		setAttr ($shader+".incandescence") -type double3 0 0 0;
+		setAttr ($shader+".ambientColor") -type double3 1 1 1;
+		setAttr ($shader+".diffuse")  1;
 		
-		connectAttr -f ($texture+".outColor") ($shader+".outTransparency");
-		$shadingNodeSG[`size $shadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
-		connectAttr -f ($shader+".outColor") ($shadingNodeSG[$i]+".surfaceShader");
+		$blockShadingNode[`size $blockShadingNodeSG`]=$shader;
+		$blockShadingNodeSG[`size $blockShadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
+		connectAttr -f ($shader+".outColor") ($blockShadingNodeSG[$i]+".surfaceShader");
 	}
 
-		$shader = `shadingNode -asShader surfaceShader -name ("blockShading"+($i+1))`;
-		$texture=`shadingNode -asTexture grid`;
-		setAttr ($texture+".uWidth") 0.05;
-		setAttr ($texture+".lineColor") -type double3 0 0 0 ;
-		setAttr ($texture+".fillerColor") -type double3 1 1 1 ;
-		
-		connectAttr -f ($texture+".outColor") ($shader+".outTransparency");
-		$shadingNodeSG[`size $shadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
-		connectAttr -f ($shader+".outColor") ($shadingNodeSG[$i]+".surfaceShader");
+		$shader = `shadingNode -asShader lambert -name ("blockShading"+($i+1))`;
+		setAttr ($shader+".color") -type double3 1 1 1;
+		setAttr ($shader+".transparency") -type double3 0.91 0.91 0.91;
+		setAttr ($shader+".incandescence") -type double3 0 0 0;
+		setAttr ($shader+".ambientColor") -type double3 1 1 1;
+		setAttr ($shader+".diffuse")  1;
+		$blockShadingNode[`size $blockShadingNodeSG`]=$shader;
+		$blockShadingNodeSG[`size $blockShadingNodeSG`] =  `sets -renderable true -noSurfaceShader true -empty -name ("blockShadingSG"+($i+1))`;
+		connectAttr -f ($shader+".outColor") ($blockShadingNodeSG[$i]+".surfaceShader");
 	
 	
 	
-	return $shadingNodeSG;
+
 
 }
 
@@ -265,20 +275,22 @@ global proc ucui_LinkMirroredBlockToTargets(string $blockList[], string $blocks[
 
 
 //Check records
-global proc string[] verifyBlockList( string $blockList[] ){
+global proc verifyBlockList(){
 	
-	string $validBlockList[];
-	for($i=0;$i<=`size $blockList`;$i++){
+	global string $blockList[];
+	
+	string $invalidBlocks[];
+	for($i=0;$i<`size $blockList`;$i++){
 		
-		if(`objExists $blockList[$i]`) {
+		if(!`objExists $blockList[$i]`) {
 
-			$validBlockList[`size $validBlockList`]=$blockList[$i];
+			$invalidBlocks[`size $invalidBlocks`]=$blockList[$i];
 			
 		}
 
 	}
-	return 	$validBlockList;
-
+	string $validBlocks[]=stringArrayRemove($invalidBlocks,$blockList);
+	$blockList=$validBlocks;
 }
 
 
@@ -298,27 +310,78 @@ global proc ucui_showControllerName(string $ui_textField){
 	}
 };
 
-
-global proc ucui_specifyBlockName(string $ui_textField){
-
+global proc ucui_showControllerName(string $ui_textField){
+	
 	string $prefix="ui_Block_";
-	string $newBlockName=($prefix+`textFieldGrp -q -text $ui_textField`);
+	string $selObj[]=`ls -sl`;
+	int $len1=`size $selObj[0]`;
+	int $len2=`size $prefix`;
+	if($len1 > $len2) {
+		if(`substring $selObj[0] 1 $len2` == $prefix) {
+			
+			
+			textFieldGrp -e -text (`substring $selObj[0] ($len2+1) $len1`) $ui_textField;
+		
+		}
+	}
+};
+
+
+
+global proc ucui_clearBlocksAndShaders(){
+
+	global string $blockList[];
+	global string $blockShadingNodeSG[];
+	global string $blockShadingNode[];
 	
-	string $selBlock[]=`ls -sl`;
+	string $item;
+	for($item in $blockList){
+		if(`objExists $item`) delete $item;
+	}
+	for($item in $blockShadingNode){
+		if(`objExists $item`) delete $item;
+	}	
+	for($item in $blockShadingNodeSG){
+		if(`objExists $item`) delete $item;
+	}
 	
-	rename $selBlock[0] $newBlockName;
+	clear $blockList;
+	clear $blockShadingNodeSG;
+	clear $blockShadingNode;
+	
 };
 
 
 
 //Create image blocks
-global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string $group , float $bgImgWidth , float $bgImgHeight){
+global proc ucui_renderBlockImage(){
 
+	global string $blockList[];
+	global string $blockPrefix;
+	global string $blockType;
+	global int $imgW,$imgH;
+	
+	string $prefix=$blockPrefix;
+	string $group=$blockType;
+	float $bgImgWidth=$imgW;
+	float $bgImgHeight=$imgH;	
+	
 	global string $userUCUIDataDir;
 	int $i;
 	int $len2=`size "ui_Block_"`;
 	string $blockName;
-
+	
+	
+	
+		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
+		float $bgBlockCoordY=`getAttr blockBackground.translateY`;
+		
+		
+		
+		float $ratioX=$bgBlockWidth/$bgImgWidth;
+		float $ratioY=$bgBlockHeight/$bgImgHeight;
 
 		//setAttr "defaultRenderGlobals.imageFormat" 50;
 		//setAttr -type "string" "defaultRenderGlobals.imfPluginKey" "xpm";
@@ -337,21 +400,47 @@ global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string 
 		string $name =`substring $blockName ($len2+1) $len1`;
 		
 
-		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
-		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+
 		float $blockWidth=`getAttr ($blockName+".scaleX")`;
 		float $blockHeight=`getAttr ($blockName+".scaleY")`;
 		
 		float $blockCoordX=`getAttr ($blockName+".translateX")`;
 		float $blockCoordY=`getAttr ($blockName+".translateY")`;		
 		
-		int $blockImgWidth = floor($blockWidth * $bgImgWidth / $bgBlockWidth);
-		int $blockImgHeight= floor($blockImgWidth * $blockHeight / $blockWidth);
+		int $blockImgWidth = ($blockWidth * $bgImgWidth / $bgBlockWidth);
+		int $blockImgHeight= ($blockImgWidth * $blockHeight / $blockWidth);
+		
+		//int $blockImageX=( abs(($blockCoordX-$blockWidth/2)-($bgBlockCoordX-$bgBlockWidth/2))*$bgImgWidth/$bgBlockWidth );	
+		//int $blockImageY=( ($bgBlockHeight-abs(($blockCoordY-$blockHeight/2)-($bgBlockCoordY-$bgBlockHeight/2)))*$bgImgHeight/$bgBlockHeight-$blockImgHeight );	
+	
+		
+		int $blockImageX=( abs($blockCoordX - $bgBlockCoordX) / $ratioX);	
+		int $blockImageY=( abs($blockCoordY - $bgBlockCoordY) / $ratioY);	
+	
+		
+		//fix size
+		
+		$blockCoordX=$blockImageX*$ratioX+$bgBlockCoordX;
+		$blockCoordY=$bgBlockCoordY-$blockImageY*$ratioY;
+		$blockWidth=$blockImgWidth*$ratioX;
+		$blockHeight=$blockImgHeight*$ratioY;
+		setAttr ($blockName+".scaleX") $blockWidth;
+		setAttr ($blockName+".scaleY") $blockHeight;
+		setAttr ($blockName+".translateX") $blockCoordX;
+		setAttr ($blockName+".translateY") $blockCoordY;
+		
+		print ($blockWidth/$ratioX);
+		print "  ";
+		print (abs($blockCoordX - $bgBlockCoordX) / $ratioX);
+		print "  ";
+		print ($blockImgWidth);
+		print "\n";
+		//
 		
 		setAttr frontShape.filmFit 1;
 		setAttr frontShape.orthographicWidth $blockWidth;
-		setAttr front.translateX $blockCoordX;
-		setAttr front.translateY $blockCoordY;
+		setAttr front.translateX ($blockCoordX+$blockWidth/2);
+		setAttr front.translateY ($blockCoordY-$blockHeight/2);
 
 		setAttr "defaultRenderGlobals.clipFinalShadedColor" 0;
 		setAttr "defaultRenderGlobals.jitterFinalColor" 0;
@@ -381,7 +470,9 @@ global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string 
 		int $nameLen=`size $renderedFile`;
 		string $xpmName=`substring $renderedFile 1 ($nameLen-3)`+"xpm";
 
-		system("convert "+$renderedFile+" "+$xpmName);
+		//system("convert "+$renderedFile+" "+$xpmName);
+		system("convert -stroke \"rgba(0,0,0,0.5)\" -strokewidth 1 -fill none -draw 'rectangle 0,0 "+$blockImgWidth+","+$blockImgHeight+"' "+$renderedFile+" "+$xpmName);
+
 		system("mv "+$xpmName+" "+$userUCUIDataDir+"/");
 		
 		// gen Non-Active image
@@ -401,10 +492,13 @@ global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string 
 		
 		int $nameLen=`size $renderedFile`;
 		string $xpmName=`substring $renderedFile 1 ($nameLen-3)`+"xpm";
+		system("convert -stroke \"rgba(0,0,0,0.5)\" -strokewidth 1 -fill none -draw 'rectangle 0,0 "+($blockImgWidth-1)+","+($blockImgHeight-1)+"' "+$renderedFile+" "+$xpmName);
 
-		system("convert "+$renderedFile+" "+$xpmName);
+		//system("convert "+$renderedFile+" "+$xpmName);
 		//or nconver, for better quality
 		//system("nconvert -o "+$xpmName+" "+$renderedFile);
+		
+		
 		system("mv "+$xpmName+" "+$userUCUIDataDir+"/");	
 	
 	}
@@ -412,8 +506,20 @@ global proc ucui_renderBlockImage( string $blockList[] , string $prefix, string 
 
 
 
-global proc ucui_generateUIFrameworkData(string $blockList[] , string $prefix, string $group, float $bgImgWidth , float $bgImgHeight){
+global proc ucui_generateUIFrameworkData(){
 
+	
+	global string $blockList[];
+	global string $blockPrefix;
+	global string $blockType;
+	global int $imgW,$imgH;
+	
+	string $prefix=$blockPrefix;
+	string $group=$blockType;
+	float $bgImgWidth=$imgW;
+	float $bgImgHeight=$imgH;
+	
+	
 	global string $userUCUIDataDir;
 	//string $uiMELStript[];
 	string $uiBlock[];
@@ -423,6 +529,15 @@ global proc ucui_generateUIFrameworkData(string $blockList[] , string $prefix, s
 	string $type;
 	int $i;
 
+	
+			float $bgBlockWidth=`getAttr blockBackground.scaleX`;
+		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
+		
+		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
+		float $bgBlockCoordY=`getAttr blockBackground.translateY`;
+		float $ratioX=$bgBlockWidth/$bgImgWidth;
+		float $ratioY=$bgBlockHeight/$bgImgHeight;		
+	
 	
 	$blockDataFileName = ( $userUCUIDataDir+"/" + $prefix+"_"+$group+"_block.txt" ); //file_store_normal_block
 	$cmdDataFileName = ( $userUCUIDataDir+"/" + $prefix+"_"+$group+"_cmd.txt" );//file_store_cmd_block	
@@ -440,31 +555,29 @@ global proc ucui_generateUIFrameworkData(string $blockList[] , string $prefix, s
 		string $type =`getAttr ($blockName+".type")`;
 		string $buffer=`getAttr ($blockName+".container")`;
 		
-
-		float $bgBlockWidth=`getAttr blockBackground.scaleX`;
-		float $bgBlockHeight=`getAttr blockBackground.scaleY`;
-		
-		float $bgBlockCoordX=`getAttr blockBackground.translateX`;
-		float $bgBlockCoordY=`getAttr blockBackground.translateY`;		
-		
-
 		float $blockWidth=`getAttr ($blockName+".scaleX")`;
 		float $blockHeight=`getAttr ($blockName+".scaleY")`;
 		
 		float $blockCoordX=`getAttr ($blockName+".translateX")`;
-		float $blockCoordY=`getAttr ($blockName+".translateY")`;
-
-
+		float $blockCoordY=`getAttr ($blockName+".translateY")`;		
+		
 		int $blockImgWidth = floor($blockWidth * $bgImgWidth / $bgBlockWidth);
 		int $blockImgHeight= floor($blockImgWidth * $blockHeight / $blockWidth);
-
 		
-		//int $blockImageX=abs(($blockCoordX-$blockWidth/2)-($bgBlockCoordX-$bgBlockWidth/2))/$bgBlockWidth*100;
-		//int $blockImageY=100-abs(($blockCoordY-$blockHeight/2)-($bgBlockCoordY-$bgBlockHeight/2))/$bgBlockHeight*100;
 
-		int $blockImageX=2+abs(($blockCoordX-$blockWidth/2)-($bgBlockCoordX-$bgBlockWidth/2))*$bgImgWidth/$bgBlockWidth;	
-		int $blockImageY=2+($bgBlockHeight-abs(($blockCoordY-$blockHeight/2)-($bgBlockCoordY-$bgBlockHeight/2)))*$bgImgHeight/$bgBlockHeight-$blockImgHeight;	
-	
+		int $blockImageX=( abs($blockCoordX - $bgBlockCoordX) / $ratioX);	
+		int $blockImageY=( abs($blockCoordY - $bgBlockCoordY) / $ratioY);	
+
+		$blockCoordX=$blockImageX*$ratioX+$bgBlockCoordX;
+		$blockCoordY=$bgBlockCoordY-$blockImageY*$ratioY;
+		$blockWidth=$blockImgWidth*$ratioX;
+		$blockHeight=$blockImgHeight*$ratioY;
+		setAttr ($blockName+".scaleX") $blockWidth;
+		setAttr ($blockName+".scaleY") $blockHeight;
+		setAttr ($blockName+".translateX") $blockCoordX;
+		setAttr ($blockName+".translateY") $blockCoordY;
+		
+		
 		
 		if($type == "command" ){
 			fprint $cmdFileID ($blockName+" "+$blockImageX+" "+$blockImageY+" "+($blockImgWidth)+" "+($blockImgHeight)+"\n");
@@ -483,14 +596,13 @@ global proc ucui_generateUIFrameworkData(string $blockList[] , string $prefix, s
 
 
 
-global proc ucui_UIDataConstructionFunc(string $blockList[] ,string $prefix, string $group, float $bgImgWidth , float $bgImgHeight){
-		
-	ucui_renderBlockImage(  $blockList ,  $prefix, $group, $bgImgWidth ,  $bgImgHeight );
-	ucui_generateUIFrameworkData( $blockList , $prefix, $group ,$bgImgWidth ,  $bgImgHeight);
+global proc ucui_UIDataConstructionFunc(){
 
+	verifyBlockList();	
+	ucui_renderBlockImage();
+	ucui_generateUIFrameworkData();
 
 }
-
 
 
 global proc uniqueCharacterUIConstructor(){
@@ -499,13 +611,14 @@ global string $userUCUIDataDir;
 $userUCUIDataDir=`getenv "HOME"`+ "/" + "ucData";
 if(!`filetest -d $userUCUIDataDir`) sysFile -makeDir $userUCUIDataDir;	
 
-if(`window  -exists  "uniqueCharacterUIConstrustorWindow"`) showWindow "uniqueCharacterUIConstrustorWindow";
+
 
 
 global int $blockColorIndex;
 global string $controllerName;
 global string $blockList[];
 global string $blockShadingNodeSG[];
+global string $blockShadingNode[];
 
 global string $uCharUIConstructorWindowVar;
 global string $w_type;
@@ -529,6 +642,10 @@ $blockColorIndex=4;
 $controllerName="noname";
 $blockPrefix="Character";
 $blockType="body";
+
+
+if(`window  -exists  "uniqueCharacterUIConstrustorWindow"`) showWindow "uniqueCharacterUIConstrustorWindow";
+else {
 
 $uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFitChildren true -title "Unique Character UI Constructor" "uniqueCharacterUIConstrustorWindow"`;
 
@@ -584,7 +701,8 @@ $uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFi
 					-columnAlign 2 "center" 			
 					;
 					button -w 160 -label "create background block" -command "$imgW=`intFieldGrp -q -value1 $w_image`;$imgH=`intFieldGrp -q -value2 $w_image`;ucui_createBackgroundBlock($imgW*$imgR,$imgH*$imgR)";
-					button -w 160 -label "render bg block image" -command "ucui_renderBackgroundBlockImage( $imgW, $imgH,  $blockPrefix,  $blockType)";
+					button -w 160 -label "CreateShadingNode" -command "ucui_createBlockShader();";
+					
 				setParent ..;
 
 				rowLayout -numberOfColumns 2
@@ -597,7 +715,7 @@ $uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFi
 					button -w 160 -label "convert selection to blocks" 
 						-command "ucui_convertSelectionToBlocks($blockColorIndex,  $blockShadingNodeSG ,$blockType, $blockList)";
 					
-					button -w 160 -label "CreateShadingNode" -command "$blockShadingNodeSG=ucui_createBlockShader();";
+					button -w 160 -label "render bg block image" -command "ucui_renderBackgroundBlockImage( $imgW, $imgH,  $blockPrefix,  $blockType)";
 
 				setParent ..;
 				rowLayout -numberOfColumns 2
@@ -608,7 +726,7 @@ $uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFi
 					;
 		
 					button -w 160 -label "mirror selection" -command "ucui_mirrorSelection()";
-					button -w 160 -label "clear blocks and shader" -command "clear $blockList; clear $blockShadingNodeSG";
+					button -w 160 -label "clear blocks and shader" -command "ucui_clearBlocksAndShaders()";
 				setParent ..;
 				
 				rowLayout -numberOfColumns 2
@@ -727,20 +845,14 @@ $uCharUIConstructorWindowVar = `window -sizeable false -w 320 -h 520 -resizeToFi
 				-columnAlign 2 "center" 			
 				;
 				button -w 160 -label "write UI data" 
-					-command "$blockList=verifyBlockList($blockList); \
-						ucui_UIDataConstructionFunc(	\
-							$blockList , \
-							$blockPrefix,  \
-							$blockType , \
-							$imgW ,  $imgH \
-						)";
-				button -w 160 -label "close" 
-					-command "deleteUI $uCharUIConstructorWindowVar;clear $blockList; clear $blockShadingNodeSG";
+					-command "ucui_UIDataConstructionFunc()";
+				button -w 160 -label "destroy previous data" 
+					-command "ucui_clearBlocksAndShaders()";
 			setParent ..;
 		setParent ..;
 	setParent ..;
 showWindow;
-
+}
 
 $uCharUIConstructorWatchingSelectionJob = `scriptJob -parent $w_cname -replacePrevious -e "SelectionChanged" "ucui_showControllerName($w_cname)"`;
 
