@@ -1,0 +1,108 @@
+/***
+cobranail's toy kit paper plane
+20080706
+	增加动画功能
+	归入toy kit
+
+***/
+
+global proc ctk_paperPlane(){
+
+	if(`window -exists "ctk_paperPlaneWindow"`) showWindow ctk_paperPlaneWindow;
+	
+	else {
+		window -wh 100 200  -rtf 1 -title "paper plane" ctk_paperPlaneWindow;
+		
+		columnLayout -rs 2 -adj 1;
+			frameLayout -l "reference";
+				columnLayout -rs 3 -adj 1;
+					textFieldGrp -label "FLSP" ctk_paperPlane_flsp;
+					textFieldGrp -label "FLEP" ctk_paperPlane_flep;
+					button -label "Get FL" -c "ctk_paperPlane_setFL()" ctk_paperPlane_btn_getfl;
+					
+				setParent ..;
+			setParent ..;
+		
+			separator ;
+			
+			frameLayout -l "fold";
+				columnLayout -rs 3 -adj 1;
+					floatSliderGrp -label "Fold Angle" -field 1 -min -180 -max 180 ctk_paperPlane_fa;
+					button -label "Fold" -c "ctk_paperPlane_fold(`textFieldGrp -q -text ctk_paperPlane_flsp`, `textFieldGrp -q -text ctk_paperPlane_flep`, `floatSliderGrp -q -value ctk_paperPlane_fa`)";
+					
+					intSliderGrp -label "Fold Anim Frames" -field 1 -min 3 -max 120 ctk_paperPlane_faf;
+					checkBox -label "fix anim curve" -align "center" ctk_paperPlane_csa;
+					button -label "Fold Anim" -c "ctk_paperPlane_anim( `textFieldGrp -q -text ctk_paperPlane_flsp`, `textFieldGrp -q -text ctk_paperPlane_flep`, `floatSliderGrp -q -value ctk_paperPlane_fa`,	`intSliderGrp -q -value ctk_paperPlane_faf`, `checkBox -q -value ctk_paperPlane_csa`)";
+
+					
+				setParent ..;
+			setParent ..;
+
+		
+	
+		showWindow ctk_paperPlaneWindow;
+	}
+}
+
+global proc ctk_paperPlane_fold(string $flp1, string $flp2, float $fa){
+
+	string $vtxGrp[]=`filterExpand -sm 31`;
+	string $vtx;
+	vector $flsp,$flep,$flmp,$flv,$op,$np,$op1,$np1;
+	float $p[3];
+	$flsp=`pointPosition -w $flp1`;
+	$flep=`pointPosition -w $flp2`;
+	$flmp=($flsp+$flep)/2;
+	$flv=$flep-$flsp;
+	
+	for($vtx in $vtxGrp){
+		
+		$op=`pointPosition -w $vtx`;
+		$np=rot(($op-$flmp),$flv,deg_to_rad($fa))+$flmp;
+		$p=$np;
+		xform -a -ws -t $p[0] $p[1] $p[2] $vtx;
+	}
+
+}
+
+global proc ctk_paperPlane_setFL(){
+
+	string $vtx[]=`filterExpand -sm 31`;
+	textFieldGrp -e -text $vtx[0] ctk_paperPlane_flsp ;
+	textFieldGrp -e -text $vtx[1] ctk_paperPlane_flep ;
+
+}
+
+global proc ctk_paperPlane_anim(string $flp1, string $flp2, float $fa, int $faf, int $csa) {
+
+	string $vtxGrp[]=`filterExpand -sm 31`;
+	string $vtx;
+	vector $flsp,$flep,$flmp,$flv,$op,$np,$op1,$np1;
+	float $p[3];
+	$flsp=`pointPosition -w $flp1`;
+	$flep=`pointPosition -w $flp2`;
+	$flmp=($flsp+$flep)/2;
+	$flv=$flep-$flsp;
+	
+	int $frame;
+	int $baseFrame=`currentTime -query`;
+	float $fastep=$fa/($faf-1);
+	
+	int $framefix=1;
+	
+	for($frame=1;$frame<=$faf;$frame++){
+		currentTime ($baseFrame+$frame);
+		
+		if($frame>1 && $frame<$faf) {
+			for($vtx in $vtxGrp){
+				$op=`pointPosition -w $vtx`;
+				$np=rot(($op-$flmp),$flv,deg_to_rad($fastep))+$flmp;
+				$p=$np;
+				xform -a -ws -t $p[0] $p[1] $p[2] $vtx;
+			
+			}
+		setKeyframe -breakdown 0 -hierarchy none -controlPoints 0 -shape 0 $vtxGrp;
+		}
+	}
+
+}

@@ -1,0 +1,22 @@
+//clean model's shaderSG which translate from sketchup model.
+global proc ctk_uniqueSG(){
+
+	string $shaders[]=`ls -sl`;
+	string $shader;
+	int $j;
+	
+	for($shader in $shaders){
+		
+		string $sgs[]=`listConnections -s 0 -sh 0 -t "shadingEngine" $shader`;
+		int $i=1;
+		while($i<`size $sgs`) {
+			hyperShade -objects $sgs[$i];	
+			hyperShade -assign $sgs[0];
+			sets -e -forceElement $sgs[0];
+			delete $sgs[$i];
+			$i++;
+		}
+	}
+	
+	
+};

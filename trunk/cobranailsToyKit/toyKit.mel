@@ -11,17 +11,19 @@ v200708016
 20080204
 	add symmetric Modelling (experiment)
 
+20080706
+	更名为toykit
 
 ***/
 
-global proc mt_symmetricModelling(int $symmetry, string $axis, float $tolerance){
+global proc ctk_symmetricModelling(int $symmetry, string $axis, float $tolerance){
 
 	symmetricModelling -symmetry $symmetry -axis $axis -tolerance $tolerance;
 
 }
 
 
-global proc mt_linearRename(string $new_prefix) {
+global proc ctk_linearRename(string $new_prefix) {
 	
 	string $new_name;
 	string $obj_list[] =`ls -sl`;
@@ -36,7 +38,7 @@ global proc mt_linearRename(string $new_prefix) {
 
 }
 
-global proc mt_matchBoundingUV(int $type){ //make src's boundingbox match dest's boundingbox, then transfer uvs.
+global proc ctk_matchBoundingUV(int $type){ //make src's boundingbox match dest's boundingbox, then transfer uvs.
 	string $objs[] = `ls -sl`;
 	Unparent;
 	select -cl;
@@ -56,14 +58,17 @@ global proc mt_matchBoundingUV(int $type){ //make src's boundingbox match dest's
 	if($type == 1) delete $objs[1];
 }
 
-global proc mt_matchUVcomponent(){
+global proc ctk_matchUVcomponent(){
 	string $objs[] = `ls -sl`;
-	transferAttributes -transferUVs 2 -sampleSpace 4 $objs[0] $objs[1];
-	select $objs[1];
+	int $i;
+	for($i=1;$i<`size $objs`;$i++){
+	transferAttributes -transferUVs 2 -sampleSpace 4 $objs[0] $objs[$i];
+	select -r $objs[$i];
+	}
 }
 
 
-global proc mt_lazyCubeUV(){
+global proc ctk_lazyCubeUV(){
 
 	int $i=0;
 	string $objSel[]=`ls -sl`;
@@ -92,7 +97,7 @@ global proc mt_lazyCubeUV(){
 }
 
 
-global proc mt_createJointFromCurve(){
+global proc ctk_createJointFromCurve(){
 	string $curves_list[]=`ls -sl`;
 	
 	int $curves_num=`size $curves_list`;
@@ -121,7 +126,7 @@ global proc mt_createJointFromCurve(){
 }
 
 
-global proc mt_matchChannelSel(string $channel_box, float $scale){
+global proc ctk_matchChannelSel(string $channel_box, float $scale){
 	
 	string $obj[]=`ls -sl`;
 	string $channel_sel[] = `channelBox -q -sma $channel_box`;
@@ -138,7 +143,7 @@ global proc mt_matchChannelSel(string $channel_box, float $scale){
 	}
 }
 
-global proc mt_channelTester(string $channel_box){
+global proc ctk_channelTester(string $channel_box){
 	
 	global string $w_sliderRanger;
 	global string $w_sliderGroup[];
@@ -148,15 +153,15 @@ global proc mt_channelTester(string $channel_box){
 
 	string $obj[]=`ls -sl`;
 	string $channel_sel[]=`channelBox -q -sma $channel_box`;
-	if (`window -ex mt_channelTesterWindow`)
-		deleteUI mt_channelTesterWindow;
+	if (`window -ex ctk_channelTesterWindow`)
+		deleteUI ctk_channelTesterWindow;
 
-	window -wh 240 240 -title "channel tester" mt_channelTesterWindow;
+	window -wh 240 240 -title "channel tester" ctk_channelTesterWindow;
 		frameLayout -bv 0 -lv 0 -mw 5 -mh 5;
 			scrollLayout -vst 16 -hst 16;
 				columnLayout -adjustableColumn true -rs 2;
 				$w_sliderRanger=`floatFieldGrp -numberOfFields 3 -label "min max step" -value1 -1.0 -value2 1.0 -value3 0.01`;
-				button -label "set range" -c "mt_channelTesterRanger($w_sliderRanger,$w_sliderGroup)";
+				button -label "set range" -c "ctk_channelTesterRanger($w_sliderRanger,$w_sliderGroup)";
 				for($i=0;$i<`size $obj`;$i++){
 					text -label $obj[$i];
 					for($j=0;$j<`size $channel_sel`;$j++) {
@@ -173,11 +178,11 @@ global proc mt_channelTester(string $channel_box){
 				}
 					
 					
-	showWindow mt_channelTesterWindow;
+	showWindow ctk_channelTesterWindow;
 	
 }
 
-global proc mt_channelTesterRanger(string $w_ranger,string $w_slider[]){
+global proc ctk_channelTesterRanger(string $w_ranger,string $w_slider[]){
 
 	int $i;
 	for($i=0;$i<`size $w_slider`;$i++){
@@ -192,7 +197,7 @@ global proc mt_channelTesterRanger(string $w_ranger,string $w_slider[]){
 
 
 
-global proc mt_orientSelectJoint(){
+global proc ctk_orientSelectJoint(){
 
 	string $sel[]=`ls -sl -head 1`;
 	joint -e -zso -oj xyz -sao yup $sel[0];
@@ -200,7 +205,7 @@ global proc mt_orientSelectJoint(){
 }
 
 
-global proc mt_outliner(){
+global proc ctk_outliner(){
 if (`window -ex mtOutlinerWindow`)
 		showWindow mtOutlinerWindow;
 else {
@@ -211,7 +216,7 @@ else {
 }
 
 }
-global proc mt_reprefix(string $oldprefix, string $newprefix){
+global proc ctk_reprefix(string $oldprefix, string $newprefix){
 	string $objs[]=`ls -sl`;
 	string $oldname;
 	for ($oldname in $objs) {
@@ -222,7 +227,7 @@ global proc mt_reprefix(string $oldprefix, string $newprefix){
 
 
 
-global proc miscTool(){
+global proc toyKit(){
 
 	source "uniqueCharacterUIBlocker.mel";
 	source "uniqueCharacterUIConstructor.mel";
@@ -232,19 +237,19 @@ global proc miscTool(){
 	source "simpleMuscle.mel";
 	
 	
-	global string $mt_rename_text;
-	global string $mt_prefix_text;
-	global string $mt_oldprefix_text;
-	global string $mt_newprefix_text;
+	global string $ctk_rename_text;
+	global string $ctk_prefix_text;
+	global string $ctk_oldprefix_text;
+	global string $ctk_newprefix_text;
 	
 	
-	if (`window -ex miscToolWindow`)
-			showWindow miscToolWindow;
+	if (`window -ex toyKitWindow`)
+			showWindow toyKitWindow;
 		
 	else {
 	
 		
-		string $miscToolWindow=`window -resizeToFitChildren 1 -s 0 -w 280 -h 480 -title "miscTools"  miscToolWindow`;
+		string $toyKitWindow=`window -resizeToFitChildren 1 -s 0 -w 280 -h 480 -title "Toy Kit"  toyKitWindow`;
 		
 			//frameLayout -mw 5 -mh 5 -lv 0 -bv 0;
 			//scrollLayout;
@@ -252,7 +257,7 @@ global proc miscTool(){
 		
 			columnLayout -adjustableColumn 1 -columnOffset "both" 3 -rs 2;
 		
-				frameLayout -label "TransformAttr" -collapsable true -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "TransformAttr" -collapsable true -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
 					button -w 200 -label "Freeze T" -command "makeIdentity -apply true -t 1 -r 0 -s 0 -n 0"; 
 					button -w 200 -label "Freeze R" -command "makeIdentity -apply true -t 0 -r 1 -s 0 -n 0"; 
@@ -261,8 +266,8 @@ global proc miscTool(){
 					
 					separator -w 200;
 					
-					button -w 200 -label "Match ChannelSel src2dest" -command "mt_matchChannelSel($gChannelBoxName,1)"; //we must pass the global var to the proc
-					button -w 200 -label "Match ChannelSel reverse src2dest" -command "mt_matchChannelSel($gChannelBoxName,-1)";
+					button -w 200 -label "Match ChannelSel src2dest" -command "ctk_matchChannelSel($gChannelBoxName,1)"; //we must pass the global var to the proc
+					button -w 200 -label "Match ChannelSel reverse src2dest" -command "ctk_matchChannelSel($gChannelBoxName,-1)";
 						
 					setParent ..;
 				setParent ..;
@@ -270,52 +275,54 @@ global proc miscTool(){
 				
 				
 			
-				frameLayout -label "UV utils" -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "UV utils" -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
-						button -w 200 -l "match uv+bounding del src" -command "mt_matchBoundingUV(0)";
-						button -w 200 -l "match uv+bounding del dest" -command "mt_matchBoundingUV(1)"; 
-						button -w 200 -l "match uv component" -command "mt_matchUVcomponent()";
+						button -w 200 -l "match uv+bounding del src" -command "ctk_matchBoundingUV(0)";
+						button -w 200 -l "match uv+bounding del dest" -command "ctk_matchBoundingUV(1)"; 
+						button -w 200 -l "match uv component" -command "ctk_matchUVcomponent()";
 						separator -w 200;
-						button -w 200 -l "LazyCube UV Projection" -command "mt_lazyCubeUV()";
+						button -w 200 -l "LazyCube UV Projection" -command "ctk_lazyCubeUV()";
 						
 					setParent ..;
 				setParent ..;
 			
-				frameLayout -label "Naming Tool"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "Naming Tool"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
 						columnLayout -rowSpacing 5 -columnAlign "center" -adjustableColumn 1;
 							text -label "Linear Rename: new name";
-							$mt_rename_text=`textField -w 140 -text "newname"` ;
+							$ctk_rename_text=`textField -w 140 -text "newname"` ;
 					
-							button -l "LinearRename" -w 140 -c "mt_linearRename(`textField -q -text  $mt_rename_text`)";
+							button -l "LinearRename" -w 140 -c "ctk_linearRename(`textField -q -text  $ctk_rename_text`)";
 						setParent ..;
 			
 						columnLayout -rowSpacing 5 -columnAlign "center" -adjustableColumn 1;
 							text -label "RePrefix: new prefix";
-							$mt_oldprefix_text=`textField -w 140 -text "old_prefix"`;
-							$mt_newprefix_text=`textField -w 140 -text "new_prefix"`;
+							$ctk_oldprefix_text=`textField -w 140 -text "old_prefix"`;
+							$ctk_newprefix_text=`textField -w 140 -text "new_prefix"`;
 					
-							button -w 200 -l "rePrefix" -c "mt_reprefix(`textField -q -text $mt_oldprefix_text`,`textField -q -text $mt_newprefix_text`)";
+							button -w 200 -l "rePrefix" -c "ctk_reprefix(`textField -q -text $ctk_oldprefix_text`,`textField -q -text $ctk_newprefix_text`)";
 						setParent ..;			
 			
 					setParent ..;
 				setParent ..;
 			
-				frameLayout -label "Procedure Modeling Tool"  -collapsable true  -cl true  -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "Modeling Tool"  -collapsable true  -cl true  -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
 						button -w  200 -l "clusterPipeTool" -c "clusterPipe()";
-						button -l "symmetricModelling X-axis on" -c "mt_symmetricModelling(1, \"x\", 0.1)";
-						button -l "symmetricModelling off" -c "mt_symmetricModelling(0, \"x\", 0.1)";
+						button -l "symmetricModelling X-axis on" -c "ctk_symmetricModelling(1, \"x\", 0.1)";
+						button -l "symmetricModelling off" -c "ctk_symmetricModelling(0, \"x\", 0.1)";
+						separator;
+						button -l "sketchup SG fix" -c "ctk_uniqueSG";
 					setParent .. ;
 				setParent ..;
 			
-				frameLayout -label "Character ToolBox"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "Character ToolBox"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
 		
-						button -w 200 -l "draw bones from curves" -c "mt_createJointFromCurve()";
+						button -w 200 -l "draw bones from curves" -c "ctk_createJointFromCurve()";
 						button -w 200 -l "simpleMuscleBuilder" -c "simpleMuscleBuilderUI()";
-						button -w 200 -l "orient select joint" -c "mt_orientSelectJoint()";
-						button -w 200 -l "channel tester" -c "mt_channelTester($gChannelBoxName)";
+						button -w 200 -l "orient select joint" -c "ctk_orientSelectJoint()";
+						button -w 200 -l "channel tester" -c "ctk_channelTester($gChannelBoxName)";
 						separator -w 200 -height 8 -style "in";
 						text -label "Unique Character Tool";
 						columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
@@ -327,15 +334,18 @@ global proc miscTool(){
 							button -w 200 -l "Write Info" -c "writeActorInfoUI()";
 				
 							text -label "Prefix:";
-							$mt_prefix_text=`textField -w 140 -text "Character"` ;
-							button -w 200 -l "Prop Tool"  -c "propTool(`textField -q -text $mt_prefix_text`)";
+							$ctk_prefix_text=`textField -w 140 -text "Character"` ;
+							button -w 200 -l "Prop Tool"  -c "propTool(`textField -q -text $ctk_prefix_text`)";
 								
 						setParent ..;
 					setParent ..;
 				setParent ..;
-				frameLayout -label "Helper"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 miscToolWindow";
+				frameLayout -label "Helper"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
-						button -l "cobranail's ToolShelf" -c "cobranailToolbox";
+						button -l "cobranail's Tool Set" -c "nailShelf";
+						button -l "Paper Plane" -c "ctk_paperPlane";
+						button -l "Rubik's Cube" -c "ctk_rubiksCube";
+						button -l "TopoMatch" -c "ctk_topoMatch";
 		//				button -l "About..." -c "confirmDialog -title \"About...\" -message \"cobranail@gmail.com\"";
 					setParent .. ;	
 				setParent .. ;
@@ -347,9 +357,9 @@ global proc miscTool(){
 			//setParent ..;
 			//setParent ..;
 				
-		showWindow $miscToolWindow;
+		showWindow $toyKitWindow;
 		
-		window -e -wh 100 100 $miscToolWindow;
+		window -e -wh 100 100 $toyKitWindow;
 	}
 
 }
