@@ -1,0 +1,423 @@
+/***
+
+  +---------------------------------------+
+  |                                       |
+  |                                       |
+  |                      fkLister         |
+  |  joint1              +----------+     |
+  |  +----------+  +---->|nodekey1  |     |
+  |  |isNode    |  |     +----------+     |
+  |  +----------+  |     |nodekey2  +<----+
+  |  |lister    +--+     +----------+
+  |  +----------+  |     |nodeswitch|<-----------+
+  |                |     +----------+            |
+  |                +--+  |fk        |            |
+  |                   |  +----------+            |
+  |  joint2           |                          |     switcher
+  |  +----------+     |  ikLister                |     +----------+
+  |  |isNode    |     |  +--------------+        |     |isIK      |
+  |  +----------+     +->|nodekey1      |        |     +----------+
+  +--+lister    +-+      +--------------+        +-----+node      |
+     +----------+ +----->|nodekey2      |        |     +----------+
+                         +--------------+        |
+  +--------------------->|nodesrc1      |        |
+  |                      +--------------+        |
+  |  joint3           +->|nodedest1     |        |
+  |  +----------+     |  +--------------+        |
+  |  |isNode    |     |  |nodeswitcher  |<-------+
+  |  +----------+     |  +--------------+
+  |  |lister    +-----+  |ik            |
+  |  +----------+        +--------------+
+  |
+  |
+  |
+  |  footctr
+  |  +----------+
+  |  |isNode    |
+  |  +----------+
+  +--+lister    |
+     +----------+
+
+
+***/
+global proc ctk_switchIKFK(string $ikfk) {
+
+	
+	string $keyobj[];
+	string $srcobj[];
+	string $destobj[];
+	string $switcher;
+	string $item[];
+	string $rnode;
+	string $obj;
+	string $src;
+	string $tempitem, $obj, $src;
+	string $attrs[];
+	string $buffer[];
+	string $lister;
+	
+	string $selobj[]=`ls -sl`;
+	for($obj in $selobj) {
+		$attrs=`listAttr -lf -ud`;
+		if (stringArrayContains("isNode",$attrs)) {
+		
+			//locate lister from select node, a lister must have "ik" or "fk" tag.
+
+			if (`connectionInfo -isSource ($obj + ".lister")`) {
+			    string $destinations[];
+			    $destinations = `connectionInfo -destinationFromSource ($obj + ".lister")`;
+			    for ($destination in $destinations) {
+				tokenize $destination " ." $buffer;
+				if (attributeExists ($ikfk, $buffer[0])) {
+					
+					$lister=$buffer[0];
+				}
+			    }
+			}
+			
+			clear $srcobj;
+			clear $destobj;
+			clear $keyobj;
+			if ($lister != "") {
+				
+				//get all connection nodes from lister
+				$rnodes=`listAttr -lf -ud -string "node*" $lister`;
+				$buffer=`listAttr -lf -ud -string "switcher" $lister`;
+				$rnodes=stringArrayCatenate($rnodes, $buffer);
+				//print $rnodes;
+				
+				
+				for($rnode in $rnodes) {
+					
+					//locate object from each node
+					if (`connectionInfo -isDestination ($lister+ "." + $rnode)`) {
+						$src = `connectionInfo -sourceFromDestination ($lister+ "." + $rnode)`;
+						//decompose
+						tokenize $src " ." $item;
+						if ($item[0] != "") {
+							//print $item[0];print "\n";
+							if (`gmatch $rnode "*src*"`) {
+								int $i=`match "[0-9]+" $rnode`;
+								$srcobj[$i]=$item[0];
+							}
+							else if (`gmatch $rnode "*dest*"`) {
+								int $i=`match "[0-9]+" $rnode`;
+								$destobj[$i]=$item[0];
+							}
+								
+							else {}
+							
+							if (`gmatch $rnode "*key*"`) {
+								int $i=`match "[0-9]+" $rnode`;
+								stringArrayInsertAtIndex(0, $keyobj, $item[0]);
+							}
+
+							
+							if (`gmatch $rnode "*switcher*"`) {
+								$switcher = $item[0];
+							}
+							
+						}
+					}
+				}			
+			}
+			
+			
+			//print ("lister is: "+$lister+"\n");
+			//print ("srcobj :\n");
+			//print $srcobj;
+			
+			//print ("destobj : \n");
+			//print $destobj;
+			
+			//print ("keyobj : \n");
+			//print $keyobj;
+			
+			//print ("switcher is: "+$switcher+"\n");
+			
+			
+			for ($tempitem in $keyobj) {
+				setKeyframe -at "rotate" $tempitem;
+			}
+			
+			//print "all keyobj keyed.\n";
+			//move srcobj to destobj
+
+		
+		
+			$curFrame=`currentTime -q`;
+			
+			if ($ikfk=="ik"){
+				
+				
+				for($i=1;$i<`size $srcobj`;$i++) {
+					//print ("match translate "+$srcobj[$i]+" "+$destobj[$i]);
+					
+					vector $pos=`xform -q -ws -t $destobj[$i]`;
+					xform -ws -t ($pos.x) ($pos.y) ($pos.z) $srcobj[$i];
+					setKeyframe -t $curFrame -at "translate" $srcobj[$i];
+					
+					//print $pos;
+					xform -q -ws -t $srcobj[$i];
+				}
+				
+
+		
+				//setAttr ($switcher+".isIK") 1;
+				
+				setKeyframe -t $curFrame -v 1 -ott "step" -at "isIK" $switcher;
+				
+				//setKeyframe -t ($curFrame-1) -v 0 -at "isIK" $switcher;
+				//keyTangent -ott "step" -at "isIK" $switcher;
+			
+			
+			}
+			else if ($ikfk=="fk"){
+				
+				for($i=1;$i<`size $srcobj`;$i++) {
+					//print $srcobj;print $destobj;
+					//print ("size of srcobj : "+`size $srcobj`+"\n");
+					//print ("size of destobj : "+`size $destobj`+"\n");
+					
+					//print ("match rotate "+$srcobj[$i]+" "+$destobj[$i]);
+					
+					float $rx=`getAttr ($destobj[$i]+".rx")`;
+					float $ry=`getAttr ($destobj[$i]+".ry")`;
+					float $rz=`getAttr ($destobj[$i]+".rz")`;
+					
+					setAttr ($srcobj[$i]+".rx") $rx;
+					setAttr ($srcobj[$i]+".ry") $ry;
+					setAttr ($srcobj[$i]+".rz") $rz;
+					setKeyframe -t $curFrame -at "rotate" $srcobj[$i];
+				}
+			
+				
+				//switch to FK, We need 2 keyframes so that workaround some issues.
+				setKeyframe -t $curFrame -v 1 -ott "step" -at "isIK" $switcher;
+				setKeyframe -t ($curFrame+1) -v 0 -itt "linear" -ott "step" -at "isIK" $switcher;
+				
+				
+			}
+			else {}
+		
+		
+		
+		
+			
+		}
+		else if (stringArrayContains("isLister",$attrs)) {
+		}
+		else{}
+		
+	
+	}
+}
+
+global proc ctk_manageIKFK(){
+
+window -title "IKFK Switcher Manager" -rtf 1;
+	columnLayout -adj 1;
+		string $menuBarLayout = `menuBarLayout`;
+			menu -label "File";
+				menuItem -label "New";
+				menuItem -label "Open";
+				menuItem -label "Close";
+			menu -label "Help" -helpMenu true;
+				menuItem -label "About...";
+		setParent ..;
+		separator -h 10;
+		
+		rowLayout -nc 3 -ad3 1 -ct3 "left" "both" "both" -co3 0 2 2;
+			textFieldGrp -ad2 2 -cw2 80 80 -label "ik Lister" -text "" ikListerEntry;
+			button -l "pick" -c "ctk_pickLister(\"ikListerEntry\",\"ik\")";
+			button -l "clear" -c "ctk_clearLister(\"ikListerEntry\",\"ik\")";
+		setParent ..;
+		
+		rowLayout -nc 3 -ad3 1 -ct3 "left" "both" "both" -co3 0 2 2;
+			textFieldGrp -ad2 2 -cw2 80 80 -label "fk Lister" -text "" fkListerEntry;
+			button -l "pick" -c "ctk_pickLister(\"fkListerEntry\",\"fk\")";
+			button -l "clear"  -c "ctk_clearLister(\"fkListerEntry\",\"fk\")";
+		setParent ..;
+
+		separator -h 10 ;		
+		
+		rowLayout -nc 3 -cw3 200 20 200 -ct3 "left" "both" "right" -co3 2 1 5 ;
+			columnLayout -adj 1;
+				button -label "switch to IK action";
+				separator -h 5 ;
+				text -label "Node Key";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					ikListerKeyWidget;
+				separator -h 5;
+				text -label "Constrain Src";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					ikListerSrcWidget;
+				text -label "Constrain Dest";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					ikListerDestWidget;
+				separator -h 5;
+				text -label "Switcher";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					ikListerSwWidget;
+					
+			setParent ..;
+			
+			separator -hr 0 -h 400;
+			
+			columnLayout  -adj 1;
+				button -label "switch to FK action";
+				separator -h 5 ;
+				text -label "Node Key";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					fkListerKeyWidget;
+				separator -h 5;
+				text -label "Constrain Src";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					fkListerSrcWidget;
+				text -label "Constrain Dest";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					fkListerDestWidget;
+				separator -h 5;
+				text -label "Switcher";
+				textScrollList -numberOfRows 8 -allowMultiSelection true
+					fkListerSwWidget;
+					
+			setParent ..;
+		
+		setParent ..;
+		
+		separator -h 10;
+		
+		frameLayout -w 280 -bv 0 -label "tag as IK node key" -mw 40;
+			
+			gridLayout -nc 4 -cwh 70 20;
+				button -w 70 -l "switcher" -c "ctk_pickNode(\"ikListerSwWidget\", `textFieldGrp -q -text ikListerEntry`, \"switcher\")";
+				button -w 70 -l "key" -c "ctk_pickNode(\"ikListerKeyWidget\", `textFieldGrp -q -text ikListerEntry`, \"key\")";
+				button -w 70 -l "src" -c "ctk_pickNode(\"ikListerSrcWidget\", `textFieldGrp -q -text ikListerEntry`, \"src\")";
+				button -w 70 -l "dest" -c "ctk_pickNode(\"ikListerDestWidget\", `textFieldGrp -q -text ikListerEntry`, \"dest\")";
+				button -w 70 -l "clear sw" -c "ctk_clearNode(\"ikListerSwWidget\", `textFieldGrp -q -text ikListerEntry`)";
+				button -w 70 -l "clear key" -c "ctk_clearNode(\"ikListerKeyWidget\", `textFieldGrp -q -text ikListerEntry`)";
+				button -w 70 -l "clear src" -c "ctk_clearNode(\"ikListerSrcWidget\", `textFieldGrp -q -text ikListerEntry`)";
+				button -w 70 -l "clear dest" -c "ctk_clearNode(\"ikListerDestWidget\", `textFieldGrp -q -text ikListerEntry`)";
+				
+				
+			setParent ..;
+			
+		setParent ..;
+		
+		separator -h 10;
+		
+		frameLayout -w 280 -bv 0 -label "tag as FK node key" -mw 40;
+			
+			gridLayout -nc 4 -cwh 70 20;
+				button -w 70 -l "switcher" -c "ctk_pickNode(\"fkListerSwWidget\", `textFieldGrp -q -text fkListerEntry`, \"switcher\")";
+				button -w 70 -l "key" -c "ctk_pickNode(\"fkListerKeyWidget\", `textFieldGrp -q -text fkListerEntry`, \"key\")";
+				button -w 70 -l "src" -c "ctk_pickNode(\"fkListerSrcWidget\", `textFieldGrp -q -text fkListerEntry`, \"src\")";
+				button -w 70 -l "dest" -c "ctk_pickNode(\"fkListerDestWidget\", `textFieldGrp -q -text fkListerEntry`, \"dest\")";
+				button -w 70 -l "clear sw" -c "ctk_clearNode(\"fkListerSwWidget\", `textFieldGrp -q -text fkListerEntry`)";
+				button -w 70 -l "clear key" -c "ctk_clearNode(\"fkListerKeyWidget\", `textFieldGrp -q -text fkListerEntry`)";
+				button -w 70 -l "clear src" -c "ctk_clearNode(\"fkListerSrcWidget\", `textFieldGrp -q -text fkListerEntry`)";
+				button -w 70 -l "clear dest" -c "ctk_clearNode(\"fkListerDestWidget\", `textFieldGrp -q -text fkListerEntry`)";
+				
+			setParent ..;
+			
+		setParent ..;
+		
+		separator -h 10;
+		
+		rowLayout -nc 2 -cl2 "center" "center" -ad2 1 -ct2 "left" "both" -co2 2 2;
+			button -w 70 -l "connect";
+			button -w 70 -l "close";
+		setParent ..;
+				
+
+showWindow();
+
+
+}
+
+
+global proc ctk_pickLister(string $widget, string $ikfk){
+	$obj=`ls -sl`;
+	if(!`attributeExists $ikfk $obj[0]`){
+		addAttr -k 1-at bool -ln $ikfk;
+	}	
+	textFieldGrp -e -text $obj[0] $widget;
+	
+}
+
+global proc ctk_clearLister(string $widget, string $ikfk){
+	$obj=`ls -sl`;
+	if(`attributeExists $ikfk $obj[0]`){
+		deleteAttr ($obj[0]+"."+$ikfk);
+	}	
+	textFieldGrp -e -text "" $widget;
+	
+}
+
+global proc ctk_pickNode(string $widget, string $lister, string $nodeType){
+	//
+	
+	if( `objExists $lister` ) {
+		$selobjs=`ls -sl`;
+		for($obj in $selobjs) {
+			
+			//add some tag attrs
+			if(!`attributeExists "isNode" $obj`){
+				addAttr -k 1-at bool -ln "isNode";
+			}
+			if(!`attributeExists "lister" $obj`){
+				addAttr -k 1 -at bool -ln "lister";
+			}
+			//add to data list
+			textScrollList -e -append $obj $widget;
+			
+			//get index
+			int $id=`textScrollList -q -ni  $widget`;
+			string $attr = "node"+$nodeType+$id;
+			//switcher use a different naming rule
+			if($nodeType == "switcher") $attr = "switcher";
+			//add to lister
+			addAttr -k 1 -at bool -ln $attr $lister;
+			//connect them
+			connectAttr ($obj+".lister") ($lister+"."+$attr);
+			
+		}
+	} 
+	else {
+		warning($lister+" does not exist.\n");
+	}
+}
+
+global proc ctk_clearNode(string $widget, string $lister){
+	if( `objExists $lister` ) {
+		$selobjs=`ls -sl`;
+		for($obj in $selobjs) {
+			if(`attributeExists  "isNode" $obj`){
+				
+				deleteAttr ($obj+".isNode");
+			}
+			if(`attributeExists "lister" $obj`){
+				if (`connectionInfo -isSource ($obj + ".lister")`) {
+					string $destinations[];
+					$destinations = `connectionInfo -destinationFromSource ($obj + ".lister")`;
+					for ($destination in $destinations) {
+						deleteAttr $destination;
+					}
+				}
+				
+				deleteAttr ($obj+".lister");
+			}
+			
+			textScrollList -e -removeItem $obj $widget;
+
+			
+		}
+	} 
+	else {
+		warning($lister+" does not exist.\n");
+	}
+}
+
+
+
