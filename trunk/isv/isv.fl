@@ -1,0 +1,203 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0109 
+header_name {.h} 
+code_name {.cxx}
+comment {//
+//	image sequence viewer
+//	
+//	cobranail@gmail.com
+//	2008/12/13
+//
+} {in_source in_header
+} 
+
+decl {\#include <stdio.h>} {public global
+} 
+
+decl {\#include "queue.h"} {global
+} 
+
+decl {\#include <string.h>} {public global
+} 
+
+decl {\#include <Magick++.h>} {global
+} 
+
+decl {\#include <iostream>} {global
+} 
+
+decl {\#include <FL/Fl_Image.H>} {public global
+} 
+
+decl {\#include <FL/Fl_File_Chooser.H>} {public global
+} 
+
+decl {\#include "imglist.h"} {global
+} 
+
+decl {using namespace std;} {global
+} 
+
+decl {using namespace Magick;} {global
+} 
+
+decl {bool playback=false,imagedatainit=false;} {} 
+
+decl {Fl_Input		*filter;
+Fl_File_Browser		*files;
+Fl_File_Chooser		*fc;} {global
+} 
+
+decl {int gwidth=100,gheight=100;} {global
+} 
+
+decl {int sframe=0,frames=0,cframe=0;} {} 
+
+decl {double spf=0.01} {global
+} 
+
+decl {uchar *rawimage=NULL;} {global
+} 
+
+decl {Fl_RGB_Image *rgb=NULL;} {global
+} 
+
+decl {TQHEAD * ghead=NULL;} {global
+} 
+
+Function {show_image(TQHEAD *head, int i)} {open private return_type void
+} {
+  code {if(rawimage!=NULL) delete rawimage;
+if(rgb!=NULL) delete rgb;
+imgFile *np,*np2;
+
+		TAILQ_FOREACH(np, head, entries){
+			if(np->qindex==i) {
+				np2=np;
+			}			
+			//printf("index:%d,qindex:%d,file:%s\\n",np->index,np->qindex,np->filename);
+			
+		}
+
+frameinfo->label(np2->filename);
+Image image( np2->filename ); 
+    int w=image.columns();
+    int h=image.rows();
+    if(w>2048 || h> 1024) {
+    	w/=2;h/=2;
+    	image.zoom( Geometry(w,h) ); 
+    }
+	
+	gwidth=w;
+	gheight=h;
+
+    rawimage=new uchar [4*w*h];
+
+    uchar *p=rawimage;
+    image.write(0,0,w,h,"RGBA",CharPixel,p);
+    rgb = new Fl_RGB_Image(rawimage, gwidth, gheight,4);
+    imagedatainit=true;
+    imgview->image(rgb);
+    imgview->redraw();
+    frameinfo->redraw();} {}
+} 
+
+Function {playbackseq(void *)} {open private return_type void
+} {
+  code {if(cframe<frames){
+indicator->value(cframe);
+show_image(ghead,cframe);
+//viewframe(i);
+cframe++;
+}
+if(cframe==frames){
+ cframe=0;	 
+}
+Fl::repeat_timeout(spf, playbackseq);} {}
+} 
+
+Function {} {open
+} {
+  code {TQHEAD head =TAILQ_HEAD_INITIALIZER(head);
+
+		TAILQ_INIT(&head);
+		ghead=&head;} {}
+  code {Fl::scheme("gtk+");
+fc = new Fl_File_Chooser(".", "*", Fl_File_Chooser::SINGLE, "Fl_File_Chooser Test");} {}
+  Fl_Window {} {
+    label {ISV 0.8} open selected
+    xywh {492 362 645 323} type Double color 33 align 80 resizable visible
+  } {
+    Fl_Group {} {open
+      xywh {10 0 630 320} resizable
+    } {
+      Fl_Box imgview {
+        xywh {10 0 625 260} box FLAT_BOX color 32 selection_color 32 labelfont 13 resizable
+        class Fl_Button
+      }
+      Fl_Value_Slider indicator {
+        user_data {&head} user_data_type {TQHEAD*}
+        callback {cframe=o->value();
+if(frames>0){
+
+	show_image(v,o->value());
+
+}}
+        xywh {10 265 625 20} type Horizontal box BORDER_BOX color 32 selection_color 1 labelcolor 55 maximum 100 step 1 textfont 13 textcolor 17
+      }
+      Fl_Group {} {open
+        xywh {35 290 560 30} box GTK_DOWN_BOX color 34 selection_color 34
+      } {
+        Fl_Button setting {
+          label {@-2menu}
+          xywh {365 295 105 20} box GTK_UP_BOX down_box GTK_DOWN_BOX color 37 selection_color 36 labelcolor 32
+        }
+        Fl_Button pausebutton {
+          label {@-3square}
+          callback {if(playback){
+playback=false;
+Fl::remove_timeout(playbackseq);	
+}}
+          xywh {55 295 85 20} box GTK_UP_BOX down_box GTK_DOWN_BOX color 37 selection_color 37
+        }
+        Fl_Button playbackbutton {
+          label {@>}
+          callback {if(!playback){
+playback=true;
+Fl::add_timeout(spf, playbackseq);
+}
+else {
+playback=false;
+Fl::remove_timeout(playbackseq);	
+}}
+          xywh {140 295 180 20} box GTK_UP_BOX down_box GTK_DOWN_BOX color 37 selection_color 37 labelcolor 32
+        }
+        Fl_Button filebutton {
+          label {@fileopen}
+          user_data {&head} user_data_type {TQHEAD*}
+          callback {fc->show();
+  while (fc->visible()) {
+    Fl::wait();
+  }
+  if(fc->value()){
+
+	frames=load_images(v,fc->value());
+	imagedatainit=false;
+        indicator->maximum(frames-1);
+        indicator->redraw();
+        show_image(v,0);
+        
+
+	//playbackimage(fc->value());
+
+}}
+          xywh {470 295 110 20} box GTK_UP_BOX down_box GTK_DOWN_BOX color 37 selection_color 37 labelcolor 32
+        }
+      }
+    }
+    Fl_Box frameinfo {
+      label {frame info}
+      xywh {10 5 625 20} color 32 selection_color 32 labelfont 13 labelsize 12 labelcolor 7 align 24
+    }
+  }
+} 
