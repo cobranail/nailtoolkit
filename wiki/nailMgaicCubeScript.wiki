@@ -1,16 +1,11 @@
-#nail Magic Cube Script usage.
+#rubiksCube Script usage.
 
 = Introduction =
 
-nailMagicCubeScript可以用来创建一个动画的魔方。
-
-
+rubiksCubeScript可以用来创建一个动画的魔方。
 
 = Usage =
 
-http://www.tudou.com/programs/view/O0Or1zI3_w8/
-
+  * 
   * 
   *
-  *
-
