@@ -1,0 +1,39 @@
+global proc ctk_exportuvl(string $filename,int $size, int $linewidth){
+
+string $evs[]=`polyInfo -ev`;
+	$uvFile = ( $filename );
+	$fileID=`fopen $uvFile "w"`;
+	
+		fwrite $fileID "uvInfo\n"; //header
+	fwrite $fileID 2; //version
+	fwrite $fileID $size; //img size
+	fwrite $fileID $linewidth; //line width
+	fwrite $fileID `size $evs`; //data block length
+	string $buffer[];
+	int $vtxid[2];
+	string $ev;
+for ($ev in $evs){
+		
+		
+		tokenize $ev " :" $buffer;
+		$vtxid[0]=$buffer[2];
+		$vtxid[1]=$buffer[3];
+		fwrite $fileID $vtxid[0]; //each data
+		fwrite $fileID $vtxid[1];
+	
+}
+fclose $fileID;
+	
+
+};
+global proc ctk_exportuvlUI(){
+	
+	global string $ctk_eului_imgfile;
+	global string $ctk_eului_imgsize;
+	window -rtf 1 -title "uvlexport";
+		columnLayout -adj 1;
+		$ctk_eului_imgsize=`intField -v 1024`;
+		button -l "sel file" -c "$ctk_eului_imgfile=`fileDialog -m 1 -dm \"*.uvl\" -dfn \"uvlines.uvl\"`";
+		button -l "export" -c "ctk_exportuvl($ctk_eului_imgfile,`intField -q -v $ctk_eului_imgsize`,1)";
+	showWindow;
+}
