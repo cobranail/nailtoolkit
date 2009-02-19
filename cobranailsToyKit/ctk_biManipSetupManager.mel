@@ -1,0 +1,391 @@
+//multiway manipulator
+//
+//
+//
+//
+//
+//
+//
+
+global int $ctk_biManipJobs[];
+global int $ctk_biManipJobsCtrl;
+global proc ctk_biManipJobsCtrlFunc(){
+	global int $ctk_biManipJobs[];
+	global int $count;
+	for ($jobNum in $ctk_biManipJobs){
+		scriptJob -kill $jobNum -force;
+	}
+	clear $ctk_biManipJobs;
+	
+	$sel=`ls  -sl -hd 1 -o`;
+	$driverObj=$sel[0];
+	if(`size $sel`>0) {
+		$driverAttrInfo=`listAttr -st "bmDriver_*"`; //bmDriven_1_nb_translateX
+		int $i=0;
+		string $attr;
+		for($attr in $driverAttrInfo){
+			//string $srcList[]=`listConnections -d off -s on ($driver+"."+$attr)`;
+			$driven=`connectionInfo -sourceFromDestination ($driverObj+"."+$attr)`;
+			string $regularExpr = "bmDriver_[0-9]*_";
+			string $driverAttr=`substitute $regularExpr $attr ""`;
+			$driver=$driverObj+"."+$driverAttr;
+			string $operator="ctk_biManipOperator("+"\""+$driver+"\""+","+"\""+$driven+"\""+")"; //"ctk_biManipOperator(\"aaa\",\"nnn\")"
+			$ctk_biManipJobs[$i]=`scriptJob -ac $driver $operator`;
+			$i++;
+			
+		}
+	}
+	//print $ctk_biManipJobs;
+	
+}
+
+
+global proc ctk_biManipOperator(string $driver, string $driven){
+	//print "driver shift!!!!!!\n";
+	$target=`connectionInfo -sourceFromDestination $driven`;
+	string $regularExpr = "bmDriven_[0-9]*_";
+	string $driven = `substitute $regularExpr $driven ""`;
+	string $dataType=`getAttr -type $target`;
+	if("double3"==$dataType){
+		float $a[]=`getAttr $target`;
+		setAttr $driven $a[0] $a[1] $a[2];
+	}
+	else {
+		setAttr $driven `getAttr $target`;
+	}
+}
+
+global proc ctk_biManipJobsManage(string $ctrl){
+	global int $ctk_biManipJobs[];
+	global int $ctk_biManipJobsCtrl;
+	if("add"==$ctrl) {
+		
+		$ctk_biManipJobsCtrl=`scriptJob  -e "SelectionChanged" "ctk_biManipJobsCtrlFunc"`;
+	}
+	else if ("kill"==$ctrl){
+
+		for ($jobNum in $ctk_biManipJobs){
+			scriptJob -kill $jobNum;
+		}
+		clear $ctk_biManipJobs;
+		scriptJob -kill $ctk_biManipJobsCtrl;
+	}
+}
+
+
+global proc int ctk_attrExists(string $attribute)
+{
+	
+	string $buffer[];
+	tokenize $attribute "." $buffer;
+
+	string $attr=$buffer[1];
+	string $node=$buffer[0];
+	if ("" == $attr || "" == $node) return 0;
+
+	// check zero, see if the node exists!
+	//
+	if( !`objExists $node` ) return 0;
+
+	// First check to see if the attribute matches the short names
+	//
+	string $attrList[] = `listAttr -shortNames $node`;
+	int $max = size($attrList);
+	int $i;
+	for( $i = 0; $i<$max; $i++ )
+	{
+		if( $attr == $attrList[$i] )
+		{
+			return 1;
+		}
+	}
+
+	// Now check against the long names
+	//
+	$attrList = `listAttr $node`;
+	$max = size($attrList);
+	for( $i = 0; $i<$max; $i++ )
+	{
+		if( $attr == $attrList[$i] )
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+
+global proc ctk_biManipAddTag(int $mode){
+	global string $ctk_biManipTagChainsDriver;
+	global string $ctk_biManipTagChainsDriven;
+	global string $ctk_biManipTagChainsTarget;
+	global string $ctk_biManipTagDriverEntry;
+	global string $ctk_biManipTagDrivenEntry;
+	global string $ctk_biManipTagTargetEntry;
+	global string $gChannelBoxName;
+	
+	string $customAttr;
+	string $obj[] = `ls -sl`;
+	string $attr;
+	
+	if($mode==1) {
+		
+		$customAttr=`textFieldButtonGrp -q -text $ctk_biManipTagDriverEntry`;
+	}
+	else if($mode == 2) {
+	
+		$customAttr=`textFieldButtonGrp -q -text $ctk_biManipTagDrivenEntry`;
+	}
+	
+	else if($mode == 3) {
+		
+		$customAttr=`textFieldButtonGrp -q -text $ctk_biManipTagTargetEntry`;
+	}
+	
+	if($customAttr!=""){
+		$attr=$customAttr;
+		
+			if ($mode==1 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsDriver;
+			}
+			else if ($mode==2 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsDriven;
+			}
+			else if ($mode==3 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsTarget;
+			}
+	
+	}
+	else {
+
+		for ($attr in `channelBox -q -sma $gChannelBoxName`){
+			
+			if ($mode==1 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsDriver;
+			}
+			else if ($mode==2 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsDriven;
+			}
+			else if ($mode==3 ) {
+				textScrollList -e -append ($obj[0]+"."+$attr) $ctk_biManipTagChainsTarget;
+			}
+		}
+	}
+}
+global proc ctk_biManipAddTagChains(){
+	global string $ctk_biManipTagChainsDriver;
+	global string $ctk_biManipTagChainsDriven;
+	global string $ctk_biManipTagChainsTarget;
+
+	string $is1[]=`textScrollList -q -allItems $ctk_biManipTagChainsDriver`;
+	string $is2[]=`textScrollList -q -allItems $ctk_biManipTagChainsDriven`;
+	string $is3[]=`textScrollList -q -allItems $ctk_biManipTagChainsTarget`;
+	
+	
+	if(`size $is1` == `size $is2` && `size $is2`==`size $is3`) {
+		
+		for($i=0;$i<`size $is1`;$i++){
+		
+			int $idr=1;
+			int $idn=1;
+			
+			string $targetAttr=$is3[$i];
+			//string $targetAttrType=`addAttr -q -at $targetAttr`;
+			
+			string $regularExpr = "\\.";
+			string $driver,$driven;
+			
+			//driver
+			do {	
+				string $prefix=".bmDriver_"+$idr+"_";
+				 $driver=`substitute $regularExpr $is1[$i] $prefix`;
+				$idr++;
+			}
+			while ( `ctk_attrExists($driver)`) ;
+			
+			string $buffer[];
+			tokenize $driver "." $buffer;
+			
+			string $dataType=`getAttr -type $targetAttr`;
+			if("double3"==$dataType){
+				addAttr -ln $buffer[1]  -at double3  $buffer[0];
+				addAttr -ln ($buffer[1]+"X")  -at double -p $buffer[1]  $buffer[0];
+				addAttr -ln ($buffer[1]+"Y")  -at double -p $buffer[1]  $buffer[0];
+				addAttr -ln ($buffer[1]+"Z")  -at double -p $buffer[1]  $buffer[0];
+			
+			}
+			else {
+				addAttr -ln $buffer[1]  -at $dataType  $buffer[0];
+			}
+			
+			//driven
+			do {	
+				string $prefix=".bmDriven_"+$idn+"_";
+				 $driven=`substitute $regularExpr $is2[$i] $prefix`;
+				$idn++;
+			}
+			while ( `ctk_attrExists($driven)`) ;
+
+			string $buffer[];
+			tokenize $driven "." $buffer;
+			string $dataType=`getAttr -type $targetAttr`;
+			if("double3"==$dataType){
+				addAttr -ln $buffer[1]  -at double3  $buffer[0];
+				addAttr -ln ($buffer[1]+"X")  -at double -p $buffer[1]  $buffer[0];
+				addAttr -ln ($buffer[1]+"Y")  -at double -p $buffer[1]  $buffer[0];
+				addAttr -ln ($buffer[1]+"Z")  -at double -p $buffer[1]  $buffer[0];
+			
+			}
+			else {
+				addAttr -ln $buffer[1]  -at $dataType  $buffer[0];
+			}
+
+			//connecting
+			//print $driven;
+			//print $driver;			
+			connectAttr $targetAttr $driven;
+			connectAttr $driven $driver;
+		} 
+		
+	}
+	
+}
+
+global proc ctk_biManipRemoveTag(int $mode){
+	global string $ctk_biManipTagChainsDriver;
+	global string $ctk_biManipTagChainsDriven;
+	global string $ctk_biManipTagChainsTarget;
+	int $sii[];
+	
+	if($mode==1) {
+		
+		$sii=`textScrollList -q -sii $ctk_biManipTagChainsDriver`;
+		for($i in $sii) textScrollList -e -rii $i $ctk_biManipTagChainsDriver;
+	}
+	else if($mode == 2) {
+	
+		$sii=`textScrollList -q -sii $ctk_biManipTagChainsDriven`;
+		for($i in $sii) textScrollList -e -rii $i $ctk_biManipTagChainsDriven;
+	}
+	
+	else if($mode == 3) {
+		
+		$sii=`textScrollList -q -sii $ctk_biManipTagChainsTarget`;
+		for($i in $sii) textScrollList -e -rii $i $ctk_biManipTagChainsTarget;
+	} 
+	
+	
+}
+
+
+global proc ctk_biManipRmoveObjectTags(){
+	$sel=`ls  -sl -o`;
+	string $obj;
+	for ($obj in $sel){
+		$driverAttrInfo=`listAttr -st "bmDrive*" $obj`; //bmDriven_1_nb_translateX
+		string $attr;
+		for($attr in $driverAttrInfo){
+			deleteAttr $attr;				
+		}
+	}
+}
+
+global proc ctk_biManipSetupManager(){
+	global string $ctk_biManipTagChainsDriver;
+	global string $ctk_biManipTagChainsDriven;
+	global string $ctk_biManipTagChainsTarget;
+	global string $ctk_biManipTagWindow;
+	global string $ctk_biManipTagForm;
+	global string $ctk_biManipTagColumn1;
+	global string $ctk_biManipTagColumn2;
+	global string $ctk_biManipTagColumn3;
+	global string $ctk_biManipTagDriverEntry;
+	global string $ctk_biManipTagDrivenEntry;
+	global string $ctk_biManipTagTargetEntry;
+	
+	$ctk_biManipTagWindow = `window  -menuBar true -title "biManipManager"`;
+	menu -label "File" -tearOff true;
+	menuItem -label "New";
+	menuItem -label "Load";
+	menuItem -label "Save";
+	menuItem -divider true;
+	menuItem -label "Quit";
+	menu -label "Help" -helpMenu true;
+	menuItem -label "User Document";
+	menuItem -label "About Application...";
+	$ctk_biManipTagForm = `formLayout -numberOfDivisions 100`;
+	$ctk_biManipTagChainsDriver = `textScrollList -numberOfRows 8 -allowMultiSelection true`;
+	$ctk_biManipTagChainsDriven = `textScrollList -numberOfRows 8 -allowMultiSelection true`;
+	$ctk_biManipTagChainsTarget = `textScrollList -numberOfRows 8 -allowMultiSelection true`;
+	
+	string $ctk_biManipTagColumn1 = `columnLayout -adj 1`;
+	$ctk_biManipTagDriverEntry=`textFieldButtonGrp 
+		-cw3 4 20 20 -rat 3 "both"  0 -ct3 "left" "both" "both" -ad3 2  
+		-label "driver" -text "" -buttonLabel "-"
+		-bc "textFieldButtonGrp -e -text \"\" $ctk_biManipTagDriverEntry"`;
+	button -l "tag attr as driver" -c "ctk_biManipAddTag(1)";
+	button -l "remove attr tag" -c "ctk_biManipRemoveTag(1)";
+	button -l "add tag chain to objects" -c "ctk_biManipAddTagChains()";
+	button -l "add job" -c "ctk_biManipJobsManage(\"add\")";
+	setParent ..;
+	string $ctk_biManipTagColumn2 = `columnLayout -adj 1`;
+	$ctk_biManipTagDrivenEntry=`textFieldButtonGrp 
+		-cw3 4 20 20 -rat 3 "both"  0 -ct3 "left" "both" "both" -ad3 2  
+		-label "driven" -text "" -buttonLabel "-"
+		-bc "textFieldButtonGrp -e -text \"\" $ctk_biManipTagDrivenEntry"`;
+
+	button -l "tag attr as driven" -c "ctk_biManipAddTag(2)";
+	button -l "remove attr tag" -c "ctk_biManipRemoveTag(2)";;
+	button -l "remove all tags from objects" ;
+	button -l "kill job" -c "ctk_biManipJobsManage(\"kill\")";
+	setParent ..;
+	string $ctk_biManipTagColumn3 = `columnLayout -adj 1`;
+	$ctk_biManipTagTargetEntry=`textFieldButtonGrp 
+		-cw3 4 20 20 -rat 3 "both"  0 -ct3 "left" "both" "both" -ad3 2  
+		-label "target" -text "" -buttonLabel "-"
+		-bc "textFieldButtonGrp -e -text \"\" $ctk_biManipTagTargetEntry"`;
+
+	button -l "tag attr as tagert" -c "ctk_biManipAddTag(3)";
+	button -l "remove attr tag" -c "ctk_biManipRemoveTag(3)";;
+	button -l "";
+	button -l "";
+	setParent ..;
+	
+	formLayout -edit
+	-attachNone     $ctk_biManipTagColumn1     "top"
+	-attachForm     $ctk_biManipTagColumn1     "left"   5
+	-attachForm     $ctk_biManipTagColumn1     "bottom" 5 
+	-attachPosition $ctk_biManipTagColumn1     "right"  5 35
+	
+	-attachNone     $ctk_biManipTagColumn2     "top" 
+	-attachControl  $ctk_biManipTagColumn2     "left"   5 $ctk_biManipTagColumn1
+	-attachForm     $ctk_biManipTagColumn2     "bottom" 5
+	-attachPosition $ctk_biManipTagColumn2     "right"  0 66
+	
+	-attachNone     $ctk_biManipTagColumn3     "top"   
+	-attachControl  $ctk_biManipTagColumn3     "left"   5 $ctk_biManipTagColumn2
+	-attachForm     $ctk_biManipTagColumn3     "bottom" 5 
+	-attachForm     $ctk_biManipTagColumn3     "right"  5
+	
+	-attachForm     $ctk_biManipTagChainsDriver     "top"    5
+	-attachForm     $ctk_biManipTagChainsDriver     "left"   5
+	-attachControl  $ctk_biManipTagChainsDriver     "bottom" 5 $ctk_biManipTagColumn1
+	-attachPosition $ctk_biManipTagChainsDriver     "right"  5 35
+	
+	-attachForm     $ctk_biManipTagChainsDriven     "top"	   5
+	-attachControl  $ctk_biManipTagChainsDriven     "left"   5 $ctk_biManipTagChainsDriver
+	-attachControl  $ctk_biManipTagChainsDriven     "bottom" 5 $ctk_biManipTagColumn2
+	-attachPosition $ctk_biManipTagChainsDriven     "right"  0 66
+	
+	-attachForm     $ctk_biManipTagChainsTarget     "top" 5
+	-attachControl  $ctk_biManipTagChainsTarget     "left"   5 $ctk_biManipTagChainsDriven
+	-attachControl  $ctk_biManipTagChainsTarget     "bottom" 5 $ctk_biManipTagColumn3
+	-attachForm     $ctk_biManipTagChainsTarget     "right"  5
+	$ctk_biManipTagForm;
+	
+	showWindow $ctk_biManipTagWindow;
+
+	
+}
+
+
