@@ -1,0 +1,61 @@
+//ctk_splitBones
+//licensed by BSD
+//cobranail@gmail.com
+//2009/03/21
+
+
+global proc ctk_splitBonesFunc(int $seg, int $mode){
+	string $seljnt[]=`ls -sl -type joint`;
+	select -clear;
+	for ($jnt in $seljnt) {
+		
+		vector $sp=`xform -q -ws -t $jnt`;
+		string $cgrp[]=`listRelatives -children $jnt`;
+		
+		for ($c in $cgrp){
+			
+			vector $ep=`xform -q -ws -t $c`;
+			vector $d=$ep-$sp;
+			for ($i=1;$i<$seg;$i++) {
+				joint -p ($sp.x+$d.x/$seg*$i) ($sp.y+$d.y/$seg*$i) ($sp.z+$d.z/$seg*$i) -n ($jnt+$c+"_"+"seg"+$i);
+				
+			}
+			
+			
+			
+			if($seg>=2){
+				parent ($jnt+$c+"_"+"seg1") $jnt;
+				parent $c ($jnt+$c+"_"+"seg"+($seg-1));
+				if ($mode==1){
+				for($i=1;$i<$seg;$i++){
+					joint -e -zso -oj xyz ($jnt+$c+"_"+"seg"+$i);
+				}
+				}
+			}
+			select -clear;
+		}	
+	}
+	select $seljnt;	
+}
+
+global proc ctk_splitBones(){
+	if(!`window -exists ctk_splitBonesWindow`){
+
+		window -title "CTK splitBones" ctk_splitBonesWindow;
+		columnLayout -adj 1 -rs 2 -cat "both" 0;
+			intSliderGrp -label "segment" -field true
+			    -minValue 1 -maxValue 10
+			    -fieldMinValue 0 -fieldMaxValue 200
+			    -value 1 ctk_splitBones_segEntry;
+			checkBox -label "OrientJoint" -align "center" ctk_splitBones_orientMode;    
+			
+			button -h 48 -l "split bones " -c "ctk_splitBonesFunc(`intSliderGrp -q -value ctk_splitBones_segEntry`,`checkBox -q -value ctk_splitBones_orientMode`)";
+		
+	
+	}
+	
+	showWindow ctk_splitBonesWindow;
+	
+
+
+}
