@@ -12,7 +12,14 @@ v200708016
 	add symmetric Modelling (experiment)
 
 20080706
-	更名为toykit
+	Rename to toykit
+
+20090321
+	add ctk_splitBones
+	add ctk_biManipSetupManager
+	update clusterPipe to ctk_clusterPipe
+	outdate "darw bones from curves"
+	add ctk_jointformCV/jointfromEP
 
 ***/
 
@@ -96,7 +103,43 @@ global proc ctk_lazyCubeUV(){
 
 }
 
+global proc ctk_jointFromCurveCV(){
+	
+	string $curves[]=`ls -sl -fl`; 
+	for ($curve in $curves){
+		select -r $curve;
+		selectCurveCV("all");
+		string $cvs[]=`ls -sl -fl`;
+		select -cl;
+		int $i=0;
+		for ($cv in $cvs){
+			$i++;
+			vector $cvp=`xform -q -ws -t $cv`;
+			joint -p ($cvp.x) ($cvp.y) ($cvp.z) -n ($curve+"_joint"+$i);
+			if ($i>1) joint -e -zso -oj xyz ($curve+"_joint"+($i-1));
+		}
+	}
+}
 
+global proc ctk_jointFromCurveEP(){
+	
+	string $curves[]=`ls -sl -fl`; 
+	for ($curve in $curves){
+		select -r $curve;
+		string $curveShapes[]=`listRelatives -shapes`;
+		int $span=`getAttr ($curveShapes[0]+".spans")`;
+		
+		select -cl;
+		int $i=0;
+		for ($i=0;$i<$span+1;$i++){
+			vector $cvp=`xform -q -ws -t ($curve+".ep["+$i+"]")`;
+			joint -p ($cvp.x) ($cvp.y) ($cvp.z) -n ($curve+"_joint"+$i);
+			if ($i>1) joint -e -zso -oj xyz ($curve+"_joint"+($i-1));
+		}
+	}
+}
+
+/***
 global proc ctk_createJointFromCurve(){
 	string $curves_list[]=`ls -sl`;
 	
@@ -124,7 +167,7 @@ global proc ctk_createJointFromCurve(){
 		
 	}
 }
-
+***/
 
 global proc ctk_matchChannelSel(string $channel_box, float $scale){
 	
@@ -233,7 +276,7 @@ global proc toyKit(){
 	source "uniqueCharacterUIConstructor.mel";
 	source "writeActorInfo.mel";
 	source "propTool.mel";
-	source "clusterPipe.mel";
+	source "ctk_clusterPipe.mel";
 	source "simpleMuscle.mel";
 	
 	
@@ -308,7 +351,7 @@ global proc toyKit(){
 			
 				frameLayout -label "Modeling Tool"  -collapsable true  -cl true  -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
-						button -w  200 -l "clusterPipeTool" -c "clusterPipe()";
+						button -w  200 -l "clusterPipeTool" -c "ctk_clusterPipe";
 						button -l "symmetricModelling X-axis on" -c "ctk_symmetricModelling(1, \"x\", 0.1)";
 						button -l "symmetricModelling off" -c "ctk_symmetricModelling(0, \"x\", 0.1)";
 						separator;
@@ -319,13 +362,18 @@ global proc toyKit(){
 				frameLayout -label "Character ToolBox"  -collapsable true  -cl true -bv 1 -mw 5 -borderStyle "out" -cc "window -e -wh 100 100 toyKitWindow";
 					columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
 		
-						button -w 200 -l "draw bones from curves" -c "ctk_createJointFromCurve()";
+						button -w 200 -l "joint from EP" -c "ctk_jointFromCurveEP()";
+						button -w 200 -l "joint from CV" -c "ctk_jointFromCurveCV()";
+						button -w 200 -l "split bones" -c "ctk_splitBones()";
 						button -w 200 -l "simpleMuscleBuilder" -c "simpleMuscleBuilderUI()";
 						button -w 200 -l "orient select joint" -c "ctk_orientSelectJoint()";
 						button -w 200 -l "channel tester" -c "ctk_channelTester($gChannelBoxName)";
 						separator -w 200 -height 8 -style "in";
 						text -label "Unique Character Tool";
+						
 						columnLayout -rowSpacing 2 -columnAlign "center" -adjustableColumn 1;
+							button -w 200 -l "biManipSetupManager" -c "ctk_biManipSetupManager";
+							
 							button -w 200 -l "unique Character UI Constructor" -c "uniqueCharacterUIConstructor()";
 							button -w 200 -l "unique Character UI Blocker" -c "uniqueCharacterUIBlocker()";
 							separator -w 200 -height 8 -style "in";
