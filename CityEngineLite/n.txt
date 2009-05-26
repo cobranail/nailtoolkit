@@ -1,0 +1,5 @@
+S(10,10,10) Repeat(Y,2){Subdiv(Y,0.5,0.5,1){wall|Subdiv(X,r(2),r(2)){a|T(2,3,4) b|c}|wall}} n
+Subdiv(X,r(2),r(1)){blue|red} E
+I("game.obj")
+T(getAttr(n='obj',at='tx'), ty, tz)
+S(1,2,list('ab"cd"e\'f[e\\}('))

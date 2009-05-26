@@ -1,0 +1,4 @@
+5:default:True~S(10,2,2) Subdiv(X,r(1),r(1),1,1){a|m|Subdiv(X,1,1,0.5){|b|b|b}|n}:1
+6:a:True~c T(-1,0,0) d:1
+7:b:gcurrentScope.size[0]<2 and gcurrentScope.position[0]>5~e:0.5 ~f:0.5
+8:f:random.choice([True,True,False])~h
