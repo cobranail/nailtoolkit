@@ -38,20 +38,12 @@ def parsingSuccessor(successor):
 	lastCmd=''
 	quote=''
 	pc=''
-	for c in successor:
+	while len(successor[0])>0:
+		c=successor[0].pop(0)
 		expect =''
 		if quote!='':
 			if pc !='\\' and c==quote:
 				quote=''		
-#			print 'c,pc:',c,pc
-#			if c in ['"','\'']:			
-#				if pc=='\\' and c==quote:
-#					buffer+=c
-#				else:
-#					if quote==c:
-#							quote=''
-#					elif quote == '':
-#						quote=c
 			buffer+=c
 		else:
 			if c == '(':
@@ -127,29 +119,40 @@ def parsingSuccessor(successor):
 			
 			elif c=='{':
 				if scope == 'symbol':
-					if tokenType == 'param' :
+					symEncStack=parsingEnc(c,symEncStack)
+					#if tokenType == 'param':
+					if len(cmdList)>0 and cmdList[-1][0]=='CMDEND':
 						cmdEndStack.append(cmdList.pop())
-						symEncStack=parsingEnc(c,symEncStack)
-					else:
-						print 'syntax error: { is neither a cmd nor a symbol'
-						break
+					if pc!='':						
+						successor[0].insert(0,'{')
+						ret=parsingSuccessor(successor)
+						cmdList=parsingCmd(ret,'SYMBOL',cmdList)
+					#else:
+					#	print 'syntax error: { is neither a cmd nor a symbol'
+					#	break
 				elif scope == 'param':
 					paramEncStack=parsingEnc(c,paramEncStack)
 					buffer+=c
 			
 			elif c == '}':
 				if scope == 'symbol':
-					r=parsingEnc(c,symEncStack)
+					r=parsingEnc(c,symEncStack)					
 					if r=='}':
 						print 'error: mismatch } in symbol scope.'
 						break
 					else:
 						symEncStack = r
-						token=buffer
-						tokenType='symbol'
-						cmdList=parsingCmd(buffer,'SYMBOL',cmdList)
+						if pc=='{' or buffer=='':
+							successor[0].insert(0,'}')
+						else:
+							token=buffer
+							tokenType='symbol'
+							cmdList=parsingCmd(buffer,'SYMBOL',cmdList)						
+						if len(cmdEndStack)>0:
+							cmdList.append(cmdEndStack.pop())												
 						buffer=''
-						cmdList.append(cmdEndStack.pop())
+						return cmdList
+
 				elif scope== 'param':
 					r=parsingEnc(c,paramEncStack)
 					if r=='}':
@@ -160,11 +163,16 @@ def parsingSuccessor(successor):
 						buffer+=c
 						
 			elif c == '|':
-				if buffer != '':
-					token=buffer
-					tokenType='symbol'
-					cmdList=parsingCmd(buffer,'SYMBOL',cmdList)
-					buffer=''
+				if scope=='symbol':
+					if buffer != '':
+						token=buffer
+						tokenType='symbol'
+						cmdList=parsingCmd(buffer,'SYMBOL',cmdList)
+						buffer=''
+						successor[0].insert(0,'{')
+					else:
+						pass						
+					return cmdList
 			
 			elif c in [' ','\t']:
 				if scope == 'symbol':
@@ -242,7 +250,7 @@ def parsingNotation(line):
 	nota=[]
 	cmd=[]
 	s=[]
-	
+	notalist=[]
 	stream=line.strip()
 	if len(stream)>0:
 		if stream[0]!='#':
@@ -256,7 +264,8 @@ def parsingNotation(line):
 					for successor in notation:
 						s=tokenStream(successor,':')
 						cmd.append(['SUCCESSOR','---'])
-						cmd+=parsingSuccessor(s.pop(0))						
+						notalist=list(s.pop(0))
+						cmd+=parsingSuccessor([notalist])						
 						if s == []:
 							cmd.append(['PROB','1'])
 						else:
