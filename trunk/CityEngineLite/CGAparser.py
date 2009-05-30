@@ -24,6 +24,10 @@ def parsingEnc(c,stack):
                     
  
 def parsingSuccessor(successor):
+	tb=''
+	for c in successor[0]:
+		tb+=c
+	#print 'successor passed in:',tb,len(tb)
 	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I']
 	cmdList=[]
 	expect=''
@@ -35,10 +39,12 @@ def parsingSuccessor(successor):
 	symEncStack=[]
 	cmdEndStack=[]
 	cmdStack=[]
+	inSubCmd=[]
 	lastCmd=''
 	quote=''
 	pc=''
-	while len(successor[0])>0:
+	needReturn = False
+	while len(successor[0])>0 and not needReturn:
 		c=successor[0].pop(0)
 		expect =''
 		if quote!='':
@@ -151,7 +157,8 @@ def parsingSuccessor(successor):
 						if len(cmdEndStack)>0:
 							cmdList.append(cmdEndStack.pop())												
 						buffer=''
-						return cmdList
+						#return cmdList
+						needReturn=True
 
 				elif scope== 'param':
 					r=parsingEnc(c,paramEncStack)
@@ -169,10 +176,13 @@ def parsingSuccessor(successor):
 						tokenType='symbol'
 						cmdList=parsingCmd(buffer,'SYMBOL',cmdList)
 						buffer=''
-						successor[0].insert(0,'{')
-					else:
-						pass						
-					return cmdList
+					successor[0].insert(0,'{')					
+					#return cmdList
+					tb=''
+					for d in successor[0]:
+						tb+=d
+					#print 'successor around |:',tb,len(tb)
+					needReturn=True
 			
 			elif c in [' ','\t']:
 				if scope == 'symbol':
@@ -202,6 +212,10 @@ def parsingSuccessor(successor):
 		else:
 			i+=1
 	
+	tb=''
+	for d in successor[0]:
+		tb+=d
+	#print 'successor remain:',tb,len(tb)
 	return cmdList
 
 def tokenStream(stream,key):
