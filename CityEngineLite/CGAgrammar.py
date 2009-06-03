@@ -5,7 +5,7 @@ import random
 import math
 import copy
 import fpformat
-from CGAparser import *
+#from CGAparser import *
 
 class CScope:
 	position=[0,0,0]
@@ -32,7 +32,7 @@ class CScope:
 			
 	
 	def show(self):
-		print self.position,self.orient,self.size,self.symbol,self.shape
+		print self.position,self.orient,self.size,self.symbol,self.shape,self.T
 		
 	def setParent(self,object=None):
 		if isinstance(object,CScope):
@@ -49,6 +49,7 @@ class CScope:
 		self.position=list(scopeSpace[0])
 		self.orient=list(scopeSpace[1])
 		self.T=[]
+		pass
 '''		
 	def shape2scope(self):
 		self.position=getForm('T',shape)
@@ -81,19 +82,20 @@ class CStructure:
 	'''
 	def evaluate(self):
 		for notation in self.notations:
-			print notation
+			
 			if len(notation)>0 :
+				print notation
 				self.parsing(notation)
 		for scope in self.symbols:
-			print 'Term:',scope.position,scope.size,scope.symbol
+			print 'Term:',scope.size,scope.symbol
 
 	def assignShape(self):
 		for scope in self.symbols:
 			assign_shape_in_maya(scope)
 	
 	def operate(self,cmdList,p):
-		##print '------operate start at----------'
-		##print p,cmdList[p]
+		global gcurrentScope
+		#print 'operate start at',p,cmdList[p]
 		param=[]
 		symbol=[]
 		scopeList=[]
@@ -105,132 +107,108 @@ class CStructure:
 		SnapFunc=['Snap','SnapLines']
 		ObjectFunc=['Insert']
 		repeatCount=1
-		global gcurrentScope
-		if (cmdList[p][0] in SuccessorSymbol):
-			p+=1;
-		elif (cmdList[p][0] is 'CMDSTART') and (cmdList[p][1] in Func):
-			func=cmdList[p][1]
-			scopeList=[]
-			#print 'start with scope ',gcurrentScope.show()
-			#next instruction
-			p+=1
-			if (cmdList[p][0] is 'PARAM'):
-				#get the parameters
-				#print cmdList[p][1]
-				param=tokenStream(cmdList[p][1],',')
+		cmdStack=[]
+		preCmd=[]
+		
+		
+		for CGAcmd in cmdList:
+			#print 'cmd is ',cmd
+			if (CGAcmd[0] in SuccessorSymbol):
+				p+=1;
+			elif (CGAcmd[0] == 'CMDSTART') and (CGAcmd[1] in Func):
+				func=CGAcmd[1]
+				scopeList=[]
+				cmdStack.append(CGAcmd)
+				#print 'start with scope ',gcurrentScope.show()
+				#next instruction
 				p+=1
-
-			print func,param
-			if func in ['T','R']:
-				gcurrentScope.pushT(copy.deepcopy(parsingTRParam(func,param)))
-			elif func == 'S':
-				parsingSParam(param)
-			elif func == 'I':
-				#gcurrentScope.shape=param[0]
-				tscope=CScope(gcurrentScope)
-				tscope.shape=param[0]
-				tscope.sync()
-				self.subSymbols.append(tscope)
-				#scopeList.append(tscope)
-			elif func == '[':
-				tmpscope=CScope(gcurrentScope)
-				self.scopeStack.append(tmpscope)
-			elif func == ']':
-				tmpscope=self.scopeStack.pop()
-				gcurrentScope=CScope(tmpscope)
-			elif func == 'Subdiv':
-				scopeList=parsingSubdivParam(param)
-				#for c in scopeList:
-					#c.show()
-			elif func == 'Repeat':
-				scopeList=parsingRepeatParam(param)
-				repeatCount=len(scopeList)
-			elif func == 'Comp':
-				pass
-			elif func == 'Roof':
-				pass
-			elif func == 'Snap':
-				pass
-			elif func == 'SnapLines':
-				pass
-			print '---sub symbols scopeList---'
-			
-			for sc in self.subSymbols:
-				sc.show()
-			print '---endprint----'
-			
-			
-			#get symbols and nested func 
-			while (cmdList[p][0] is not 'CMDEND'):
-				#assign a symobl in a cmd scope
-				if len(scopeList)>0:
-					scope=scopeList[0]
-					gcurrentScope=CScope(scope)
-					gcurrentScope.sync()
-					#print 'currentScope is ', gcurrentScope.show()
-			
-				if (cmdList[p][0] is 'SYMBOL'):
-					#if it is a terminal symbol, create it
-					s=cmdList[p][1]
-					if s==self.predecessor.symbol:
-						print 'successor is same as predecessor'
-						break
-					symbol.append(s)
+				
+			elif (CGAcmd[0] == 'PARAM') and (cmdStack[-1][0] == 'CMDSTART'):
+				if (CGAcmd[0] is 'PARAM'):
+					#get the parameters
+					#print cmdList[p][1]
+					param=tokenStream(CGAcmd[1],',')
+					p+=1
+				func = cmdStack[-1][1]
+				#print func,param
+				if func in ['T','R']:
+					gcurrentScope.pushT(copy.deepcopy(parsingTRParam(func,param)))
+				elif func == 'S':
+					parsingSParam(param)
+				elif func == 'I':
+					#gcurrentScope.shape=param[0]
 					tscope=CScope(gcurrentScope)
-					tscope.symbol=s
+					tscope.shape=param[0]
+					tscope.sync()
 					self.subSymbols.append(tscope)
-					
+					#scopeList.append(tscope)
+				elif func == '[':
+					tmpscope=CScope(gcurrentScope)
+					self.scopeStack.append(tmpscope)
+				elif func == ']':
+					tmpscope=self.scopeStack.pop()
+					gcurrentScope=CScope(tmpscope)
+				elif func == 'Subdiv':
+					scopeList=parsingSubdivParam(param)
+					for c in scopeList:
+						c.show()
+				elif func == 'Repeat':
+					scopeList=parsingRepeatParam(param)
+					repeatCount=len(scopeList)
+				elif func == 'Comp':
+					pass
+				elif func == 'Roof':
+					pass
+				elif func == 'Snap':
+					pass
+				elif func == 'SnapLines':
+					pass
+				'''
+				print '---symbols scopeList---'
+				
+				for sc in self.subSymbols:
+					sc.show()
+				print '---endprint----'
+				'''
+				
+				#get symbols and nested func 
+
+			#assign a symobl in a cmd scope
+			elif CGAcmd[0] == 'SYMBOL':  			
+
+
+				#print 'currentScope is ', gcurrentScope.show()
+				while repeatCount>0:
 					if len(scopeList)>0:
+						scope=scopeList[0]
+						gcurrentScope=CScope(scope)
+						gcurrentScope.sync()
 						scopeList.pop(0)
-					if repeatCount>1:
-						repeatCount-=1
-					else:
-						#prepare for the next instruction
-						p+=1
-						print 'Symbol :',s
 					
-				elif (cmdList[p][0] is 'CMDSTART'):
-					#nesting func,return value point to the next instruction
-					start_p=p #bookmark the start addr, using with repeat func
-					#print 'scope passed in to cmd'
-					#gcurrentScope.show()
-					p=self.operate(cmdList,p)
-					if len(scopeList)>0:
-						scopeList[0]=CScope(gcurrentScope)
-						
-					if repeatCount>1:
-						#using with repeat func 
-						#when repeat once, pop the data had used, if there is not repeat func, irgnore the whole segment. 
-						#it only cycles n-1 time, why? because the last time, we need it treat the repeation as a normal cmd.
-						#notice: scopeList is not empty, althrough the repeat func end	
-						p=start_p
-						repeatCount-=1
-					if len(scopeList)>0:
-						scopeList.pop(0)
-				else:
-					#undefined symbol
-					print 'Undefined Symbol ',cmdList[p],p
-					break
-			#we need p+1 when we hit the CMDEND instruction, the preparation of next instruction
-			p+=1
-			print func,' Complete'
-		elif cmdList[p][0] is 'SYMBOL':
-			if cmdList[p][1] == 'Empty' :
-				print 'Symbol : remove'
-			else :
-				scope=CScope(gcurrentScope)
-				scope.symbol=cmdList[p][1]
-				scope.sync()
-				self.subSymbols.append(scope)
-				print 'Symbol :',cmdList[p][1]
-			p+=1
-		else:
-			print 'Undefined Notation ',cmdList[p],p
-			return len(cmdList)
-		
-		
-		
-		#print 'return at',p,cmdList[p]
+					s=CGAcmd[1]
+					if type(s) is types.StringType:			
+						if CGAcmd[1] == 'Empty' :
+							pass
+							#print 'Symbol : remove'
+						else :
+							scope=CScope(gcurrentScope)
+							scope.symbol=CGAcmd[1]
+							scope.sync()
+							self.subSymbols.append(scope)
+							#print 'Symbol :',CGAcmd[1]
+					elif type(s) is types.ListType:
+						tp=self.operate(s,0)
+					
+					repeatCount-=1
+				repeatCount=1
+	
+				p+=1
+			elif CGAcmd[0] == 'CMDEND':
+				pass
+			else:
+				print 'Undefined Notation ',CGAcmd
+				return len(cmdList)
+			#print 'return at',p,cmdList[p]
 		return p
 	
 	
@@ -265,30 +243,33 @@ class CStructure:
 				gcurrentScope = CScope(self.symbols[i])
 				self.predecessor = CScope(self.symbols[i])
 				gparentScope = CScope(self.symbols[i])
-				print 'SUCCESSOR start:'
+				#print 'SUCCESSOR start:'
 				r=random.random()
 				#print 'random ',r
 				cond=eval(notation[2])
-				print 'notation',notation[0],'condition is',cond
+				#print 'notation',notation[0],'condition is',cond
 				if cond:
 					for successor in successors:
 						if r>0:
 							if r-successor[2]>0:
 								r-=successor[2]
 				
-							else:	
-								ptr=successor[0]
+							else:
+								successorIN=cmdList[successor[0]:successor[1]]
+								#print 'successor in',successorIN
+								self.operate(successorIN,0)
+								#ptr=successor[0]
 								#print 'choice:',successor
 								#print '---------start----------'
-								while ptr<successor[1]:
-									ptr=self.operate(cmdList,ptr)
+								#while ptr<successor[1]:
+								#	ptr=self.operate(cmdList,ptr)
 									#ptr+=1
 								r-=successor[2]
 				
 					idx=i
 					self.symbols.pop(idx)
 					self.symbols=self.symbols[:idx]+self.subSymbols+self.symbols[idx:]
-					print self.predecessor.symbol,'have been replaced.'
+					#print self.predecessor.symbol,'have been replaced.'
 		
 			slen=len(self.symbols)
 			sl=len(self.subSymbols)
@@ -467,6 +448,7 @@ def parsingSubdivParam(param):
 
 def parsingRepeatParam(param):
 	global gcurrentScope
+	#print 'param',param
 	scopeList=[]
 	axisid=-1
 	axis=''
@@ -474,7 +456,9 @@ def parsingRepeatParam(param):
 	param_val=[]
 	rsum=0.0
 	vsum=0.0
-	have_r=False
+	useCount=False
+	repeatCount=1
+	T1=['T','O',['R','R','R'],[0,0,0]]
 	if len(param)>0:
 		axis=param.pop(0)
 	
@@ -483,30 +467,63 @@ def parsingRepeatParam(param):
 		#print 'ret:',ret
 		param_val.append(eval(ret))
 	
-	if axis=='X':
-		scope_sx=gcurrentScope.size[0]
+	if 'X' in axis:
+		#scope_sx=gcurrentScope.size[0]
 		axisid=0
-	elif axis=='Y':
-		scope_sx=gcurrentScope.size[1]
+	elif 'Y' in axis:
+		#scope_sx=gcurrentScope.size[1]
 		axisid=1
-	elif axis=='Z':
-		scope_sx=gcurrentScope.size[2]
-		axisid=2		
+	elif 'Z' in axis:
+		#scope_sx=gcurrentScope.size[2]
+		axisid=2
+	
+	if 'D' in axis:
+		useCount=True		
+	
+	scope_sx=gcurrentScope.size[axisid]
 	
 	for val in param_val:
 		vsum+=float(val)
-		
-	repeatCount=int(math.floor(scope_sx/vsum))
 	
-	s=float(gcurrentScope.position[axisid])
-	for i in range(0,repeatCount):
-		tmpscope=CScope()
-		tmpscope.position[axisid]=s
-		tmpscope.size[axisid]=scope_sx/repeatCount
-		s+=(scope_sx/repeatCount)
-		#tmpscope.show()
-		scopeList.append(tmpscope)
-	gcurrentScope.position[axisid]+=scope_sx
+	if useCount:
+		repeatCount=int(param_val[0])
+		#print 'repeatCount',repeatCount
+		s=0.0
+		for i in range(0,repeatCount):
+			T1[3]=[0,0,0]
+			tmpscope=CScope(gcurrentScope)
+			T1[3][axisid]=s
+			#tmpscope.T=[]
+			tmpscope.pushT(T1)
+			#print s,tmpscope.T,tmpscope.size
+			tmpscope.size[axisid]=float(scope_sx)/repeatCount
+			#print 'scope_sx/repeatCount',float(scope_sx)/repeatCount
+			s+=tmpscope.size[axisid]
+			#tmpscope.show()
+			scopeList.append(tmpscope)		
+		
+		
+	else:
+		repeatCount=int(math.floor(scope_sx/vsum))
+		
+		s=0.0
+		for i in range(0,repeatCount):
+			T1[3]=[0,0,0]
+			tmpscope=CScope(gcurrentScope)
+			T1[3][axisid]=s
+			#tmpscope.T=[]
+			tmpscope.pushT(T1)
+			print tmpscope.T
+			tmpscope.size[axisid]=scope_sxrepeatCount
+			s+=tmpscope.size[axisid]
+			#tmpscope.show()
+			scopeList.append(tmpscope)
+			
+	T1[3][axisid]=scope_sx
+	gcurrentScope.pushT(T1)
+	print 'repeat sec', len(scopeList)
+	for c in scopeList:
+		c.show()
 	return scopeList
 
 

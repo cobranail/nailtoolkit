@@ -149,7 +149,8 @@ def parsingSuccessor(successor):
 					else:
 						symEncStack = r
 						if pc=='{' or buffer=='':
-							successor[0].insert(0,'}')
+							#successor[0].insert(0,'}')
+							pass
 						else:
 							token=buffer
 							tokenType='symbol'

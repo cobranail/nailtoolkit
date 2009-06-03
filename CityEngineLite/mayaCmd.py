@@ -47,9 +47,14 @@ def assign_shape_in_maya(scope):
 		cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
 
 
+
+gcurrentScope=CScope()
+gparentScope=CScope()
+
 def facade(rule):
-	gcurrentScope=CScope()
-	gparentScope=CScope()
+	global gcurrentScope
+	global gparentScope
+
 	myshape=CStructure()
 
 	myshape.notations=[]
