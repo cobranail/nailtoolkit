@@ -20,15 +20,14 @@ def parsingEnc(c,stack):
 				return c
 		else:
 			return c
-	return stack	
-                    
+	return stack	   
  
 def parsingSuccessor(successor):
 	tb=''
 	for c in successor[0]:
 		tb+=c
 	#print 'successor passed in:',tb,len(tb)
-	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I']
+	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I','Extrude','Load','FootPrint','FComp','Set']
 	cmdList=[]
 	expect=''
 	token=''
