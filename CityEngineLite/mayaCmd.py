@@ -34,7 +34,10 @@ def eval_T_in_maya(scope):
 def assign_shape_in_maya(scope):	
 	if scope.shape=='':
 		if scope.symbol!='':
-			newpoly=cmds.polyCreateFacet(name=scope.symbol, p=[(0.0, 0.0, 0.0), (1, 0.0, 0.0), (1,1,0.0),(0.0, 1, 0.0)] )
+			if scope.nvtx!=[]:
+				newpoly=cmds.polyCreateFacet(name=scope.symbol, p=[tuple(v) for v in scope.nvtx] ,ch=False)
+			else:
+				newpoly=cmds.polyCreateFacet(name=scope.symbol, p=[(0.0, 0.0, 0.0), (1, 0.0, 0.0), (1,1,0.0),(0.0, 1, 0.0)] )
 			cmds.setAttr(newpoly[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
 			cmds.setAttr(newpoly[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])
 			cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])

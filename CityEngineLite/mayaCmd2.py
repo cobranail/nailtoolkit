@@ -14,10 +14,10 @@ def getvtx(poly):
 	#f=poly+'.f[0]'
 	vss=cmds.polyInfo(poly,fv=True)[0].split()[2:]
 	#vtxn=cmds.ls(sl=True,fl=True)
-	m=poly.split('.')
+	m=poly.split('.')[0]
 	vtxc=[]
 	for v in vss:
-		vtxc.append(cmds.xform(m[0]+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
+		vtxc.append(cmds.xform(m+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
 	return vtxc
 
 
@@ -158,6 +158,19 @@ def calc_rot_xy(fn2):
 		ry=-ry
 	return ry,rx
 
+def calc_rot_xy2(fn2):
+	pn=[0,1.0,0]
+	fn=[]
+	for n in fn2:
+		fn.append(float(n))
+	
+	if fn[0]==0.0 and fn[2]==0.0:
+		ry,rx=0,0
+	else:
+		ry=math.degrees(vec2rad([fn[0],0,fn[2]], [0,0,-1.0]))
+		rx=math.degrees(-vec2rad(fn,pn))
+	return ry,rx
+
 def sumseq(seq):
 	def add(x,y): return x+y
 	return reduce(add, seq, 0)
@@ -185,7 +198,7 @@ def orig_point(vtx,fn):
 		if sign(v[0]-bcp[0])==sign(vd[0]) and sign(v[2]-bcp[2])==sign(vd[2]) and v[1]<bcp[1]:
 			return v
 
-def new_facet(vtx,fn):	
+def new_sideface(vtx,fn):	
 	r=calc_rot_xy(fn)
 	#print 'r',r
 	vtx2=[]
@@ -202,35 +215,48 @@ def new_facet(vtx,fn):
 	zl=float(bound[5]-bound[4])
 	
 	for v in vtx2:
-		v2=[(v[0]-bound[0])/xl,(v[1]-bound[2])/yl,1]
-		vtx3.append(v2)
-	print vtx3	
+		v2=[(v[0]-bound[0])/xl,(v[1]-bound[2])/yl,0]
+		vtx3.append(v2)	
 	newface=cmds.polyCreateFacet( p=[tuple(x) for x in vtx3] ,ch=False)
 	cmds.setAttr(newface[0]+'.visibility',False)
-	cmds.setAttr(newface[0]+'.scale',xl,yl,0)
+	cmds.setAttr(newface[0]+'.scale',xl,yl,1)
 	
 	cmds.setAttr(newface[0]+'.rotate',r[1],r[0],0)
 	rp=cmds.xform(newface[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
 	
 	cmds.setAttr(newface[0]+'.translate',vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2])
-	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,yl,0]]
+	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,yl,1],vtx3]
+
+def new_topface(vtx,fn):	
+	r=calc_rot_xy2(fn)
+	#print 'r',r
+	vtx2=[]
+	vtx3=[]
+	for v in vtx:
+		v2=rot(v,'y',r[0])
+		v3=rot(v2,'x',r[1])
+		vtx2.append(v3)
+	#print 'vtx2',vtx2
+	bound=get_bound(vtx2)
+	#print 'bound',bound
+	xl=float(bound[1]-bound[0])
+	yl=float(bound[3]-bound[2])
+	zl=float(bound[5]-bound[4])
+	
+	for v in vtx2:
+		v2=[(v[0]-bound[0])/xl,0,(v[2]-bound[4])/zl]
+		vtx3.append(v2)	
+	newface=cmds.polyCreateFacet( p=[tuple(x) for x in vtx3] ,ch=False)
+	cmds.setAttr(newface[0]+'.visibility',False)
+	cmds.setAttr(newface[0]+'.scale',xl,1,zl)
+	
+	cmds.setAttr(newface[0]+'.rotate',r[1],r[0],0)
+	rp=cmds.xform(newface[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
+	
+	cmds.setAttr(newface[0]+'.translate',vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2])
+	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,1,zl],vtx3]
 
 
-def testnf():
-	
-	s=cmds.ls(sl=True,fl=True)
-	fns=cmds.polyInfo(fn=True)
-	fn2=fns[0].split()[2:]
-	fn3=[float(fn2[0]), float(fn2[1]),float(fn2[2])]
-	
-	poly=s[0].split('.')[0]
-	vss=cmds.polyInfo(fv=True)[0].split()[2:]
-	vtxc=[]
-	for v in vss:
-		vtxc.append(cmds.xform(poly+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
-	
-	print 'vtxc',vtxc
-	new_facet(vtxc,fn3)
 
 def get_bound(vtx):
 	x=[vtx[0][0],vtx[0][0]]
@@ -312,13 +338,40 @@ def get_faces_in_maya(scope,type):
 			fn=fns[0].split()[2:]
 			fn3=[float(fn[0]), float(fn[1]),float(fn[2])]
 			fn4=normal_vec(fn3)
-			if -0.99<math.fabs(fn4[1])<0.99:
+			if -0.99<=math.fabs(fn4[1])<=0.99:
 				tagfaces.append(scope.shape+'.f['+str(i)+']')
 				vtx=getvtx(scope.shape+'.f['+str(i)+']')
-				newpoly=new_facet(vtx,fn4)
+				newpoly=new_sideface(vtx,fn4)
 				faces.append(newpoly)
+	elif type=='topfaces':
+		for i in xrange(faceCount):
+			fns=cmds.polyInfo(scope.shape+'.f['+str(i)+']',fn=True)
+			fn=fns[0].split()[2:]
+			fn3=[float(fn[0]), float(fn[1]),float(fn[2])]
+			fn4=normal_vec(fn3)
+			if 1.0>=math.fabs(fn4[1])>0.99:
+				tagfaces.append(scope.shape+'.f['+str(i)+']')
+				vtx=getvtx(scope.shape+'.f['+str(i)+']')
+				newpoly=new_topface(vtx,fn4)
+				faces.append(newpoly)
+			
 	return faces
 
+def testnf():
+	
+	s=cmds.ls(sl=True,fl=True)
+	fns=cmds.polyInfo(fn=True)
+	fn2=fns[0].split()[2:]
+	fn3=[float(fn2[0]), float(fn2[1]),float(fn2[2])]
+	
+	poly=s[0].split('.')[0]
+	vss=cmds.polyInfo(fv=True)[0].split()[2:]
+	vtxc=[]
+	for v in vss:
+		vtxc.append(cmds.xform(poly+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
+	
+	print 'vtxc',vtxc
+	new_topface(vtxc,fn3)
 
 def extrude_face_in_maya(shape,d):
 	vtx=getvtx(shape)

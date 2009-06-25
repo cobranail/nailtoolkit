@@ -10,15 +10,17 @@ import fpformat
 class CScope:
 	position=[0,0,0]
 	orient=[0,0,0]
-	size=[0,0,0]
+	size=[1,1,1]
 	symbol=''
 	D=0
+	dim=''
 	bound=[]
 	subScopes=[]
 	shape=''
 	locator=''
 	parent=None
 	T=[]
+	nvtx=[]
 	useSymbolAsShape=True
 	# T : ['T','O',['A','A','R'],[x,y,z]],['R','O',['R','R','R'],[u,v,w]]
 	def __init__(self,object=None):
@@ -32,15 +34,16 @@ class CScope:
 			self.T=copy.deepcopy(object.T)
 			self.D=object.D
 			self.subScopes=copy.deepcopy(object.subScopes)
-			
+			self.setNvtx(object.nvtx)
 	def setP(self,p):
 		self.position=p
 	def setR(self,p):
 		self.orient=p
 	def setS(self,p):
-		self.size=p
-	
-	
+		self.size=p	
+	def setNvtx(self,vtx):
+		self.nvtx=copy.deepcopy(vtx)
+		
 	def show(self):
 		print self.position,self.orient,self.size,self.symbol,self.shape,self.T
 		
@@ -111,7 +114,7 @@ class CStructure:
 
 	def assignShape(self):
 		active_shape_in_maya(self.symbols)
-		scale4render(self.symbols)
+		#scale4render(self.symbols)
 		pass
 			
 	def operate(self,cmdList,p):
@@ -298,6 +301,8 @@ class CStructure:
 				
 					idx=i
 					self.inactiveSymbols.append(self.symbols.pop(idx))
+					if len(self.subSymbols) == 0:
+						self.subSymbols.append(copy.deepcopy(gcurrentScope))
 					self.symbols=self.symbols[:idx]+self.subSymbols+self.symbols[idx:]
 					#print self.predecessor.symbol,'have been replaced.'
 					
@@ -677,16 +682,25 @@ def parsingFCompParam(param):
 	scopeList=[]
 	if param[0] == 'sidefaces':
 		faces=get_faces_in_maya(gparentScope,'sidefaces')
-		print 'faces',faces
+		#print 'faces',faces
 		for f in faces:
 			scopeList.append(face_to_scope(f))
+			scopeList[-1].dim='xy'
 			
 		deactive_shape_in_maya([gparentScope])
 		for i in xrange(len(scopeList)):
 			scopeList[i].shape=''
-			
 	elif param[0] == 'topfaces':
-		pass		
+		faces=get_faces_in_maya(gparentScope,'topfaces')
+		for f in faces:
+			scopeList.append(face_to_scope(f))
+			scopeList[-1].dim='xz'
+			
+		deactive_shape_in_maya([gparentScope])
+		for i in xrange(len(scopeList)):
+			scopeList[i].shape=''
+	elif param[0] == 'topplanes':
+		pass
 	elif param[0] == 'bottomfaces':
 		pass		
 	elif param[0] == 'allfaces':
@@ -722,7 +736,8 @@ def face_to_scope(f):
 	scope.position=[0,0,0]
 	scope.orient=[0,0,0]
 	
-	scope.size=f[3]	
+	scope.size=f[3]
+	scope.setNvtx(f[4])
 	return scope
 
 def LCTs(scope):
