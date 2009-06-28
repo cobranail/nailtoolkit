@@ -27,7 +27,7 @@ def parsingSuccessor(successor):
 	for c in successor[0]:
 		tb+=c
 	#print 'successor passed in:',tb,len(tb)
-	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I','Extrude','Load','FootPrint','FComp','Set']
+	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset']
 	cmdList=[]
 	expect=''
 	token=''
