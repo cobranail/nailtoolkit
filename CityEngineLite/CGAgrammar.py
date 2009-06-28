@@ -124,7 +124,7 @@ class CStructure:
 		param=[]
 		symbol=[]
 		scopeList=[]
-		Func=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','[',']','T','R','S','I','Extrude','Load','FootPrint','FComp','Set']
+		Func=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','[',']','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset']
 		SymbolFunc=['Subdiv','Repeat','Comp','Roof']
 		SuccessorSymbol=['SUCCESSOR','PROB']
 		TransformFunc=['Translate','Rotate','Scale']
@@ -197,6 +197,8 @@ class CStructure:
 					repeatCount=len(scopeList)
 				elif func == 'Set':
 					parsingSetParam(param)
+				elif func == 'Offset':
+					parsingOffsetParam(param)
 				'''
 				print '---symbols scopeList---'
 				
@@ -368,6 +370,10 @@ def parsingSParam(param):
 	global gcurrentScope
 	t='S'
 	m=len(param)
+	offset=0.0
+	if 'F' in param[0]:
+		m=m-1
+	
 	axisid=0
 	pre_D=gcurrentScope.D
 	ev=0
@@ -428,14 +434,13 @@ def parsingSParam(param):
 					gcurrentScope.D+=1
 				gcurrentScope.size[i]=val
 				#ev=gcurrentScope.size[axisid]
-					
-	print pre_D,gcurrentScope.D
-	if pre_D==2 and gcurrentScope.D==3 and gcurrentScope.shape != '':
-		#print '----',gcurrentScope.show()
-		ts=cmds.getAttr(gcurrentScope.shape+'.scale')	
-		cmds.setAttr(gcurrentScope.shape+'.scale',1,1,1)
-		extrude_in_maya(gcurrentScope.shape,1)
-		cmds.setAttr(gcurrentScope.shape+'.scale',ts[0][0],ts[0][1],ts[0][2])
+				
+	if gcurrentScope.shape != '':
+		if is2D(gcurrentScope,'ANY'):
+			ts=cmds.getAttr(gcurrentScope.shape+'.scale')	
+			cmds.setAttr(gcurrentScope.shape+'.scale',1,1,1)
+			extrude_in_maya(gcurrentScope.shape,1,param)
+			cmds.setAttr(gcurrentScope.shape+'.scale',ts[0][0],ts[0][1],ts[0][2])
 
 def parsingSubdivParam(param):
 	global gcurrentScope
@@ -721,6 +726,12 @@ def parsingSetParam(param):
 	global gparentScope
 	for p in param:
 		eval(p)
+
+def parsingOffsetParam(param):
+	global gcurrentScope
+	global gparentScope
+	shape=offset_face_in_maya(eval(param[0]))
+	
 
 def face_to_scope(f):
 	global gcurrentScope

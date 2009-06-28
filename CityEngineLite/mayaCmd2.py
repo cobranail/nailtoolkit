@@ -10,17 +10,21 @@ for v in vtxn:
 
 
 
-def getvtx(poly):
-	#f=poly+'.f[0]'
-	vss=cmds.polyInfo(poly,fv=True)[0].split()[2:]
-	#vtxn=cmds.ls(sl=True,fl=True)
-	m=poly.split('.')[0]
+def getvtx(polyface):
+	vss=cmds.polyInfo(polyface,fv=True)[0].split()[2:]
+	m=polyface.split('.')[0]
 	vtxc=[]
 	for v in vss:
 		vtxc.append(cmds.xform(m+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
 	return vtxc
 
-
+def getvtx_local(polyface):
+	vss=cmds.polyInfo(polyface,fv=True)[0].split()[2:]
+	m=polyface.split('.')[0]
+	vtxc=[]
+	for v in vss:
+		vtxc.append(cmds.xform(m+'.vtx['+v+']',q=True,t=True))
+	return vtxc
 
 
 
@@ -256,7 +260,18 @@ def new_topface(vtx,fn):
 	cmds.setAttr(newface[0]+'.translate',vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2])
 	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,1,zl],vtx3]
 
-
+def offset_vtx(vtx,d):
+	vo=zip(vtx[-1]+vtx[:-1],vtx,vtx[1:]+vtx[0])
+	nv3d=[]
+	if is2Dvtxs(vtxs,'XY'):
+		for vp in vo:
+			nv2d=offsetVector([vp[0][0]-vp[1][0],vp[0][1]-vp[1][1]],[vp[2][0]-vp[1][0],vp[2][1]-vp[1][1]],d)
+			nv3d.append([nv2d[0],nv2d[1],0.0])
+	elif is2Dvtxs(vtxs,'XZ'):
+		for vp in vo:
+			nv2d=offsetVector([vp[0][0]-vp[1][0],vp[0][1]-vp[1][1]],[vp[2][0]-vp[1][0],vp[2][1]-vp[1][1]],d)
+			nv3d.append([nv2d[0],0.0,nv2d[1]])
+	return nv3d
 
 def get_bound(vtx):
 	x=[vtx[0][0],vtx[0][0]]
@@ -379,11 +394,14 @@ def extrude_face_in_maya(shape,d):
 	#print 'g faces:',len(faces),faces
 	return faces
 
-def extrude_in_maya(shape,d):
-	print shape,d
-	cmds.polyExtrudeFacet(shape, kft=True,ws=False, ltz=d) 
-	
-
+def extrude_in_maya(shape,d,param):
+	off=0.0
+	if 'F' in param[0]:
+		off=eval(param[-1])
+	cmds.polyExtrudeFacet(shape, kft=True,ws=False, ltz=d,offset=off) 
+	if 'D' in param[0]:
+		cmds.delete(shape+'.f[1]')
+		
 def deactive_shape_in_maya(scopes):
 	for scope in scopes:
 		if scope.shape!=''and cmds.objExists(scope.shape):
@@ -398,6 +416,33 @@ def scale4render(scopes):
 	for scope in scopes:
 		if scope.shape!='' and cmds.objExists(scope.shape):
 			cmds.setAttr(scope.shape+'.scaleZ', 1)		
+
+def is2D(scope,axis):
+	faceCount=cmds.polyEvaluate( [scope.shape], f=True )
+	for i in xrange(faceCount):
+		vtxs=getvtx_local(scope.shape+'.f['+str(i)+']')
+		b=get_bound(vtxs)
+		if b[5]-b[4]>0.0 and b[3]-b[2]>0.0 and b[1]-b[0]>0.0:
+			return False
+		if axis=='XZ':
+			if b[3]-b[2]>0.0:
+				return False
+		elif axis=='XY':
+			if b[5]-b[4]>0.0:
+				return False
+	return True
+		
+def is2Dvtxs(vtxs,axis):
+	b=get_bound(vtxs)
+	if b[5]-b[4]>0.0 and b[3]-b[2]>0.0 and b[1]-b[0]>0.0:
+		return False
+	if axis=='XZ':
+		if b[3]-b[2]>0.0:
+			return False
+	elif axis=='XY':
+		if b[5]-b[4]>0.0:
+			return False
+	return True
 
 
 def cw(vtx):
