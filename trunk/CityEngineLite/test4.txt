@@ -1,8 +1,13 @@
 1:null~FootPrint(poly){footprint}
-2:footprint~S(Y,10) facades
-3:facades~FComp(sidefaces){facade} FComp(topfaces){roof}
-4:facade~Subdiv(Y,r(1),0.3){Subdiv(X,0.5,r(1),0.5){side|mf|side}|topline}
-5:mf~Subdiv(Y,2,r(1)){firstfloor|Repeat(YD,3){Subdiv(Y,0.3,r(1),0.3){t0|Repeat(X,2){t2}|t0}}}
-6:firstfloor:gcurrentScope.size[0]>6~Subdiv(X,r(1),4,r(1)){t1|door|t1}
-7:t2:gcurrentScope.size[0]>1.6~Subdiv(X,r(1),1.4,r(1)){t3|windowtile|t3}
-#8:windowtile~S(Z,gcurrentScope.size[1]) I(window1):0.3 ~S(Z,gcurrentScope.size[1]) I(window2):0.3 ~S(Z,gcurrentScope.size[1]) I(window3):0.4
+2:footprint~S(Y,3) facades
+3:facades~FComp(sidefaces){lv1facade} FComp(topfaces){roof}
+4:roof~Offset(1) level2
+5:level2~S(Y,10) level2facades
+6:level2facades~FComp(sidefaces){facade} FComp(topfaces){roof} FComp(bottomfaces){base}
+7:facade~Subdiv(Y,r(1),0.3){Subdiv(X,0.5,r(1),0.5){side|mf|side}|topline}
+8:mf~Subdiv(Y,2,r(1)){firstfloor|Repeat(YD,3){Subdiv(Y,0.3,r(1),0.3){t0|Repeat(X,2){t2}|t0}}}
+9:firstfloor:gcurrentScope.size[0]>6~Subdiv(X,r(1),4,r(1)){t1|door|t1}
+10:t2:gcurrentScope.size[0]>1.6~Subdiv(X,r(1),1.4,r(1)){t3|windowtile|t3}
+11:roof~Offset(0.1) roof2
+111:roof2~S(Y,0.06) roof3D
+12:windowtile~S(Z,gcurrentScope.size[1]) I(window1):0.3 ~S(Z,gcurrentScope.size[1]) I(window2):0.3 ~S(Z,gcurrentScope.size[1]) I(window3):0.4

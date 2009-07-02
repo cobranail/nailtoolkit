@@ -1,15 +1,3 @@
-vtx=cmds.polyInfo(fv=True)
-vtx=vtx[0].split()
-vtx=vtx[2:]
-vtxn=cmds.ls(sl=True,fl=True)
-vtxc=[]
-for v in vtxn:
-	vtxc.append(cmds.xform(v,q=True,a=True,t=True,))
-
-	
-
-
-
 def getvtx(polyface):
 	vss=cmds.polyInfo(polyface,fv=True)[0].split()[2:]
 	m=polyface.split('.')[0]
@@ -63,10 +51,6 @@ class CShape:
 
 	def setS(self):
 		pass
-
-
-
-
 	
 
 def extrudeEdge(d,edge,vtx):
@@ -202,9 +186,10 @@ def orig_point(vtx,fn):
 		if sign(v[0]-bcp[0])==sign(vd[0]) and sign(v[2]-bcp[2])==sign(vd[2]) and v[1]<bcp[1]:
 			return v
 
-def new_sideface(vtx,fn):	
+def new_sideface(vtx,fn):
+	fn=veccross([vtx[1][0]-vtx[0][0],vtx[1][1]-vtx[0][1],vtx[1][2]-vtx[0][2]],[vtx[2][0]-vtx[1][0],vtx[2][1]-vtx[1][1],vtx[2][2]-vtx[1][2]])
 	r=calc_rot_xy(fn)
-	#print 'r',r
+	print 'r',r
 	vtx2=[]
 	vtx3=[]
 	for v in vtx:
@@ -214,9 +199,9 @@ def new_sideface(vtx,fn):
 	#print 'vtx2',vtx2
 	bound=get_bound(vtx2)
 	#print 'bound',bound
-	xl=float(bound[1]-bound[0])
-	yl=float(bound[3]-bound[2])
-	zl=float(bound[5]-bound[4])
+	xl=bound[1]-bound[0]
+	yl=bound[3]-bound[2]
+	zl=bound[5]-bound[4]
 	
 	for v in vtx2:
 		v2=[(v[0]-bound[0])/xl,(v[1]-bound[2])/yl,0]
@@ -233,7 +218,7 @@ def new_sideface(vtx,fn):
 
 def new_topface(vtx,fn):	
 	r=calc_rot_xy2(fn)
-	#print 'r',r
+	print 'r',r
 	vtx2=[]
 	vtx3=[]
 	for v in vtx:
@@ -243,9 +228,9 @@ def new_topface(vtx,fn):
 	#print 'vtx2',vtx2
 	bound=get_bound(vtx2)
 	#print 'bound',bound
-	xl=float(bound[1]-bound[0])
-	yl=float(bound[3]-bound[2])
-	zl=float(bound[5]-bound[4])
+	xl=bound[1]-bound[0]
+	yl=bound[3]-bound[2]
+	zl=bound[5]-bound[4]
 	
 	for v in vtx2:
 		v2=[(v[0]-bound[0])/xl,0,(v[2]-bound[4])/zl]
@@ -261,19 +246,92 @@ def new_topface(vtx,fn):
 	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,1,zl],vtx3]
 
 def offset_vtx(vtx,d):
-	vo=zip(vtx[-1]+vtx[:-1],vtx,vtx[1:]+vtx[0])
+	vo=zip([vtx[-1]]+vtx[:-1],vtx,vtx[1:]+[vtx[0]])
 	nv3d=[]
-	if is2Dvtxs(vtxs,'XY'):
+	if is2Dvtxs(vtx,'XY'):
 		for vp in vo:
 			nv2d=offsetVector([vp[0][0]-vp[1][0],vp[0][1]-vp[1][1]],[vp[2][0]-vp[1][0],vp[2][1]-vp[1][1]],d)
-			nv3d.append([nv2d[0],nv2d[1],0.0])
-	elif is2Dvtxs(vtxs,'XZ'):
+			nv3d.append([nv2d[0]+vp[1][0],nv2d[1]+vp[1][1],0.0])
+	elif is2Dvtxs(vtx,'XZ'):
 		for vp in vo:
-			nv2d=offsetVector([vp[0][0]-vp[1][0],vp[0][1]-vp[1][1]],[vp[2][0]-vp[1][0],vp[2][1]-vp[1][1]],d)
-			nv3d.append([nv2d[0],0.0,nv2d[1]])
+			nv2d=offsetVector([vp[0][0]-vp[1][0],vp[0][2]-vp[1][2]],[vp[2][0]-vp[1][0],vp[2][2]-vp[1][2]],d)
+			nv3d.append([nv2d[0]+vp[1][0],0.0,nv2d[1]+vp[1][2]])
 	return nv3d
 
+def offset_face_in_maya(scope,d):
+	if scope.shape!='':
+		r0=cmds.getAttr(scope.shape+'.rotate')[0]
+		t0=cmds.getAttr(scope.shape+'.translate')[0]
+		t01=cmds.xform(scope.shape+'.vtx[0]',q=True,a=True,ws=True,t=True)
+		cmds.setAttr(scope.shape+'.translate',0,0,0)
+		cmds.setAttr(scope.shape+'.rotate',0,0,0)
+		vtxs0=getvtx(scope.shape+'.f[0]')
+		cmds.delete(scope.shape)
+		bound0=get_bound(vtxs0)
+		vtxs0a=[]		
+		if is2Dvtxs(vtxs0,'XY'):
+			p='XY'
+		elif is2Dvtxs(vtxs0,'XZ'):
+			p='XZ'
+			for vtx in vtxs0:
+				vtxs0a.append([vtx[2],vtx[0],vtx[1]])
+			vtxs0=copy.deepcopy(vtxs0a)
+			vtxs0a=[]
+		
+				
+		vtxs1=offset_vtx(vtxs0,d)
+		
+		if p=='XZ':
+			for vtx in vtxs1:
+				vtxs0a.append([vtx[1],vtx[2],vtx[0]])
+			vtxs1=copy.deepcopy(vtxs0a)
+			vtxs0a=[]
+		
+		bound=get_bound(vtxs1)
+		#print 'bound',bound
+		xl=float(bound[1]-bound[0])
+		yl=float(bound[3]-bound[2])
+		zl=float(bound[5]-bound[4])
+		vtxs2=[]
+		vtxs3=[]
+		if p=='XY':
+			for v in vtxs1:
+				vtxs2.append([(v[0]-bound[0])/xl,(v[1]-bound[2])/yl,0])
+				vtxs3.append([v[0]/xl,v[1]/yl,0])
+		elif p=='XZ':
+			for v in vtxs1:
+				vtxs2.append([(v[0]-bound[0])/xl,0,(v[2]-bound[4])/zl])
+				vtxs3.append([v[0]/xl,0,v[2]/zl])
+				
+		newface0=cmds.polyCreateFacet( p=[tuple(x) for x in vtxs3] ,ch=False)		
+		newface=cmds.polyCreateFacet(n=scope.shape, p=[tuple(x) for x in vtxs2] ,ch=False)
+		cmds.setAttr(newface[0]+'.visibility',False)
+		if p=='XY':
+			cmds.setAttr(newface0[0]+'.scale',xl,yl,1)
+			cmds.setAttr(newface[0]+'.scale',xl,yl,1)
+		elif p=='XZ':
+			cmds.setAttr(newface0[0]+'.scale',xl,1,zl)
+			cmds.setAttr(newface[0]+'.scale',xl,1,zl)
+		
+		cmds.setAttr(newface0[0]+'.rotate',r0[0],r0[1],0)
+		cmds.setAttr(newface[0]+'.rotate',r0[0],r0[1],0)
+		
+		cmds.setAttr(newface0[0]+'.translate',t0[0],t0[1],t0[2])	
+		rp0=cmds.xform(newface0[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
+		rp=cmds.xform(newface[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
+		
+		cmds.setAttr(newface[0]+'.translate',rp0[0]-rp[0],rp0[1]-rp[1],rp0[2]-rp[2])
+		cmds.delete(newface0[0])
+		
+		if p=='XY':
+			return [newface,[rp0[0]-rp[0],rp0[1]-rp[1],rp0[2]-rp[2]],[r0[1],r0[0],0],[xl,yl,1],vtxs2]
+		elif p=='XZ':
+			return [newface,[rp0[0]-rp[0],rp0[1]-rp[1],rp0[2]-rp[2]],[r0[1],r0[0],0],[xl,1,zl],vtxs2]	
+			
+		
+
 def get_bound(vtx):
+	print vtx
 	x=[vtx[0][0],vtx[0][0]]
 	y=[vtx[0][1],vtx[0][1]]
 	z=[vtx[0][2],vtx[0][2]]
@@ -311,10 +369,11 @@ def rot(v,ax,deg):
 		
 	b=[[v[0]],[v[1]],[v[2]]]
 	r=matrix_mutil(a,b)
+	'''
 	for i in [0,1,2]:
 		if -0.0000000000000001<r[i][0]<0.0000000000000001:
 			r[i][0]=0
-			
+	'''		
 	return [r[0][0],r[1][0],r[2][0]]
 
 
@@ -364,7 +423,18 @@ def get_faces_in_maya(scope,type):
 			fn=fns[0].split()[2:]
 			fn3=[float(fn[0]), float(fn[1]),float(fn[2])]
 			fn4=normal_vec(fn3)
-			if 1.0>=math.fabs(fn4[1])>0.99:
+			if 1.0>=fn4[1]>0.99:
+				tagfaces.append(scope.shape+'.f['+str(i)+']')
+				vtx=getvtx(scope.shape+'.f['+str(i)+']')
+				newpoly=new_topface(vtx,fn4)
+				faces.append(newpoly)
+	elif type=='bottomfaces':
+		for i in xrange(faceCount):
+			fns=cmds.polyInfo(scope.shape+'.f['+str(i)+']',fn=True)
+			fn=fns[0].split()[2:]
+			fn3=[float(fn[0]), float(fn[1]),float(fn[2])]
+			fn4=normal_vec(fn3)
+			if -1.0<=fn4[1]<-0.99:
 				tagfaces.append(scope.shape+'.f['+str(i)+']')
 				vtx=getvtx(scope.shape+'.f['+str(i)+']')
 				newpoly=new_topface(vtx,fn4)
@@ -378,7 +448,7 @@ def testnf():
 	fns=cmds.polyInfo(fn=True)
 	fn2=fns[0].split()[2:]
 	fn3=[float(fn2[0]), float(fn2[1]),float(fn2[2])]
-	
+	print 'fn is ',fn3
 	poly=s[0].split('.')[0]
 	vss=cmds.polyInfo(fv=True)[0].split()[2:]
 	vtxc=[]
@@ -417,6 +487,12 @@ def scale4render(scopes):
 		if scope.shape!='' and cmds.objExists(scope.shape):
 			cmds.setAttr(scope.shape+'.scaleZ', 1)		
 
+def clear_inactive_in_maya(scopes):
+	for scope in scopes:
+		if cmds.objExists(scope.shape) :
+			if cmds.getAttr(scope.shape+'.visibility') is False:
+			cmds.delete(scope.shape)
+		
 def is2D(scope,axis):
 	faceCount=cmds.polyEvaluate( [scope.shape], f=True )
 	for i in xrange(faceCount):
@@ -480,7 +556,6 @@ def pointInPoly(p,vtx):
 
 
 def eval_T_in_maya(scope):
-	print 'call eval T in maya'
 	loc=cmds.spaceLocator()
 	cmds.setAttr(loc[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
 	cmds.setAttr(loc[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])
@@ -545,11 +620,3 @@ def facade(rule):
 
 
 facade('/Users/cobranail/Documents/nailtoolkit/CityEngineLite/test4.txt')
-
-
-
-import math
-
-e=[1,2]
-
-extrudeEdge(3,e,vtxc)

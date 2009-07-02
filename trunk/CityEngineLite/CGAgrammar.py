@@ -111,7 +111,6 @@ class CStructure:
 		for scope in self.symbols:
 			print 'Term:',scope.symbol,scope.shape
 		deactive_shape_in_maya(self.inactiveSymbols)
-
 	def assignShape(self):
 		active_shape_in_maya(self.symbols)
 		#scale4render(self.symbols)
@@ -206,7 +205,6 @@ class CStructure:
 					sc.show()
 				print '---endprint----'
 				'''
-				
 				#get symbols and nested func 
 
 			#assign a symobl in a cmd scope
@@ -695,18 +693,15 @@ def parsingFCompParam(param):
 		deactive_shape_in_maya([gparentScope])
 		for i in xrange(len(scopeList)):
 			scopeList[i].shape=''
-	elif param[0] == 'topfaces':
-		faces=get_faces_in_maya(gparentScope,'topfaces')
+	elif param[0] == 'topfaces' or param[0]=='bottomfaces':
+		faces=get_faces_in_maya(gparentScope,param[0])
 		for f in faces:
 			scopeList.append(face_to_scope(f))
-			scopeList[-1].dim='xz'
-			
+			scopeList[-1].dim='xz'			
 		deactive_shape_in_maya([gparentScope])
 		for i in xrange(len(scopeList)):
 			scopeList[i].shape=''
 	elif param[0] == 'topplanes':
-		pass
-	elif param[0] == 'bottomfaces':
 		pass		
 	elif param[0] == 'allfaces':
 		pass
@@ -730,8 +725,12 @@ def parsingSetParam(param):
 def parsingOffsetParam(param):
 	global gcurrentScope
 	global gparentScope
-	shape=offset_face_in_maya(eval(param[0]))
-	
+	face=offset_face_in_maya(gcurrentScope,eval(param[0]))
+	gcurrentScope.shape=face[0][0]
+	gcurrentScope.position=copy.deepcopy(face[1])
+	gcurrentScope.orient=copy.deepcopy(face[2])
+	gcurrentScope.size=copy.deepcopy(face[3])
+	gcurrentScope.nvtx=copy.deepcopy(face[4])
 
 def face_to_scope(f):
 	global gcurrentScope
