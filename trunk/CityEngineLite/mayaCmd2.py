@@ -491,7 +491,7 @@ def clear_inactive_in_maya(scopes):
 	for scope in scopes:
 		if cmds.objExists(scope.shape) :
 			if cmds.getAttr(scope.shape+'.visibility') is False:
-			cmds.delete(scope.shape)
+				cmds.delete(scope.shape)
 		
 def is2D(scope,axis):
 	faceCount=cmds.polyEvaluate( [scope.shape], f=True )
