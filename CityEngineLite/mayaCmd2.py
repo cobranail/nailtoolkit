@@ -189,7 +189,7 @@ def orig_point(vtx,fn):
 def new_sideface(vtx,fn):
 	fn=veccross([vtx[1][0]-vtx[0][0],vtx[1][1]-vtx[0][1],vtx[1][2]-vtx[0][2]],[vtx[2][0]-vtx[1][0],vtx[2][1]-vtx[1][1],vtx[2][2]-vtx[1][2]])
 	r=calc_rot_xy(fn)
-	print 'r',r
+	#print 'r',r
 	vtx2=[]
 	vtx3=[]
 	for v in vtx:
@@ -214,11 +214,12 @@ def new_sideface(vtx,fn):
 	rp=cmds.xform(newface[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
 	
 	cmds.setAttr(newface[0]+'.translate',vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2])
+	print 'new side face: ',newface
 	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,yl,1],vtx3]
 
 def new_topface(vtx,fn):	
 	r=calc_rot_xy2(fn)
-	print 'r',r
+	#print 'r',r
 	vtx2=[]
 	vtx3=[]
 	for v in vtx:
@@ -258,7 +259,22 @@ def offset_vtx(vtx,d):
 			nv3d.append([nv2d[0]+vp[1][0],0.0,nv2d[1]+vp[1][2]])
 	return nv3d
 
+
 def offset_face_in_maya(scope,d):
+	newpoly=cmds.duplicate([scope.shape])[0]
+	cmds.polyExtrudeFacet(newpoly, ch=False,kft=True,ws=False, ltz=0,offset=-d)
+	
+	faceCount=cmds.polyEvaluate( [newpoly], f=True )
+	for i in xrange(1,faceCount):
+		cmds.delete(fullName(newpoly,'f',i))
+	face=new_face_auto(newpoly)
+	cmds.delete(newpoly)
+	
+	return face
+	
+
+
+def offset_face_in_maya_old(scope,d):
 	if scope.shape!='':
 		r0=cmds.getAttr(scope.shape+'.rotate')[0]
 		t0=cmds.getAttr(scope.shape+'.translate')[0]
@@ -331,7 +347,7 @@ def offset_face_in_maya(scope,d):
 		
 
 def get_bound(vtx):
-	print vtx
+	#print vtx
 	x=[vtx[0][0],vtx[0][0]]
 	y=[vtx[0][1],vtx[0][1]]
 	z=[vtx[0][2],vtx[0][2]]
@@ -417,6 +433,7 @@ def get_faces_in_maya(scope,type):
 				vtx=getvtx(scope.shape+'.f['+str(i)+']')
 				newpoly=new_sideface(vtx,fn4)
 				faces.append(newpoly)
+		print 'faces in get faces func:',faces
 	elif type=='topfaces':
 		for i in xrange(faceCount):
 			fns=cmds.polyInfo(scope.shape+'.f['+str(i)+']',fn=True)
@@ -465,17 +482,21 @@ def extrude_face_in_maya(shape,d):
 	return faces
 
 def extrude_in_maya(shape,d,param):
-	off=0.0
+	newpoly=cmds.duplicate([shape])
+	offset1=0.0
 	if 'F' in param[0]:
-		off=eval(param[-1])
-	cmds.polyExtrudeFacet(shape, kft=True,ws=False, ltz=d,offset=off) 
+		offset1=eval(param[-1])
+	cmds.polyExtrudeFacet(newpoly[0], kft=True,ws=False, ltz=d,offset=offset1) 
 	if 'D' in param[0]:
-		cmds.delete(shape+'.f[1]')
+		cmds.delete(newpoly[0]+'.f[1]')
+	return newpoly[0]
 		
 def deactive_shape_in_maya(scopes):
 	for scope in scopes:
 		if scope.shape!=''and cmds.objExists(scope.shape):
-			cmds.setAttr(scope.shape+'.visibility', False)		
+			print 'deactive_shape:',scope.shape
+			cmds.setAttr(scope.shape+'.visibility', False)
+			print 'newstate:',cmds.getAttr(scope.shape+'.visibility')
 
 def active_shape_in_maya(scopes):
 	for scope in scopes:
@@ -492,10 +513,72 @@ def clear_inactive_in_maya(scopes):
 		if cmds.objExists(scope.shape) :
 			if cmds.getAttr(scope.shape+'.visibility') is False:
 				cmds.delete(scope.shape)
+				
+def clear_shape_in_maya(shapes):
+	for s in shapes:
+		if cmds.objExists(s) :
+			cmds.delete(s)
+					
+
+def combine_face_in_maya(scopeStack,param):
+	mesh=[]
+	
+	for scope in scopeStack:
+		if cmds.objExists(scope.shape) :
+			mesh.append(scope.shape)
+	print 'shapeStack in combine(groupOpStack):',mesh
+	newname=scopeStack[0].symbol+'New'
+	
+	poly4unite=cmds.duplicate(mesh)
+	
+	
+	
+	newmesh=cmds.polyUnite(poly4unite,ch=False,n=newname)[0]
+	cmds.polyMergeVertex(ch=False)
+	
+	if param[0] == 'AF':
+		remove_shared_edge_in_maya(newmesh)
+	
+	newface=new_face_auto(newmesh)
+	#cmds.setAttr(newmesh+'.visibility',False)
+	cmds.delete(newmesh)
+	return newface
+	
+def new_face_auto(polyface):
+	fns=cmds.polyInfo(polyface,fn=True)
+	fn=fns[0].split()[2:]
+	fn3=[float(fn[0]), float(fn[1]),float(fn[2])]
+	fn4=normal_vec(fn3)
+	if -0.99<=math.fabs(fn4[1])<=0.99:
+		vtx=getvtx(polyface)
+		newpoly=new_sideface(vtx,fn4)
+		
+	elif 1.0>=fn4[1]>0.99:
+		vtx=getvtx(polyface)
+		newpoly=new_topface(vtx,fn4)
+		
+	elif -1.0<=fn4[1]<-0.99:
+		vtx=getvtx(polyface)
+		newpoly=new_topface(vtx,fn4)
+			
+	return newpoly
+	
+	
+
+def remove_shared_edge_in_maya(poly):
+	edgeDelGrp=[]
+	edgeCount=cmds.polyEvaluate( [poly], e=True )
+	for e in xrange(edgeCount):
+		efSet=reStyle2(cmds.polyInfo(fullName(poly,'e',e),ef=True)[0])
+		if len(efSet)>1:
+			edgeDelGrp.append(fullName(poly,'e',e))
+	cmds.polyDelEdge(edgeDelGrp,cv=False,ch=False)
+
 		
 def is2D(scope,axis):
 	faceCount=cmds.polyEvaluate( [scope.shape], f=True )
 	for i in xrange(faceCount):
+	#test each face of the object
 		vtxs=getvtx_local(scope.shape+'.f['+str(i)+']')
 		b=get_bound(vtxs)
 		if b[5]-b[4]>0.0 and b[3]-b[2]>0.0 and b[1]-b[0]>0.0:
@@ -525,20 +608,26 @@ def cw(vtx):
 	s=((vtx[0][0]-vtx[1][0])*(vtx[0][1]+vtx[1][1])+(vtx[1][0]-vtx[2][0])*(vtx[1][1]+vtx[2][1])+(vtx[2][0]-vtx[0][0])*(vtx[2][1]+vtx[0][1]))/2.0
 	return s
 
-	
-
-
 
 def pointInTri(p,vtx):
-	if cw([vtx[0],vtx[1],p])>0 and cw([vtx[1],vtx[2],p])>0 and cw([vtx[2],vtx[0],p])>0:
+	if cw([vtx[0],vtx[1],p])>=0 and cw([vtx[1],vtx[2],p])>=0 and cw([vtx[2],vtx[0],p])>=0:
 		return True
-	
-	elif cw([vtx[0],vtx[1],p])<0 and cw([vtx[1],vtx[2],p])<0 and cw([vtx[2],vtx[0],p])<0:
+	elif cw([vtx[0],vtx[1],p])<=0 and cw([vtx[1],vtx[2],p])<=0 and cw([vtx[2],vtx[0],p])<=0:
 		return True
-
 	else:
 		return False
 
+
+def pointInTri3D(p3D,vtx3D):
+	pxy=p3D[:2]
+	pyz=p3D[1:]
+	pxz=p3D[::2]
+	vxy=[a[:2] for a in vtx3D ]
+	vyz=[a[1:] for a in vtx3D ]
+	vxz=[a[::2] for a in vtx3D]
+	if pointInTri(pxy,vxy) and pointInTri(pyz,vyz) and pointInTri(pxz,vxz):
+		return True
+	return False
 		
 
 def pointInPoly(p,vtx):
@@ -552,9 +641,27 @@ def pointInPoly(p,vtx):
 	return False
 
 
+def fullName(o,t,i):
+	return o +'.'+ t +'['+ str(i) +']'
+
+def onlyID(e):
+	return int(e.split('[')[1].rstrip()[:-1])
+
+def reStyle(raw):
+	new=[]
+	for s in raw:
+		new.append(onlyID(s))
+	return new
+	
+def reStyle2(raw):
+	rvSet=raw.split()[2:]
+	if rvSet[-1] == 'Hard':
+		rvSet.pop()
+	return [int(i) for i in rvSet]
 
 
 
+'''
 def eval_T_in_maya(scope):
 	loc=cmds.spaceLocator()
 	cmds.setAttr(loc[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
@@ -587,11 +694,64 @@ def assign_shape_in_maya(scope):
 	cmds.setAttr(newpoly[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
 	cmds.setAttr(newpoly[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])
 	cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
+'''
 
 
+def eval_T_in_maya(scope):
+	#print 'call eval T in maya'
+	loc=cmds.spaceLocator()
+	cmds.setAttr(loc[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
+	cmds.setAttr(loc[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])
+	#cmds.setAttr(loc[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
+	for t in scope.T:
+		if t[0]=='T':
+			if t[2][0]==t[2][1]==t[2]=='R':
+				cmds.move(t[3][0],t[3][1],t[3][2],loc[0],r=True,os=True)
+			elif t[2][0]==t[2][1]==t[2]=='A':
+				cmds.move(t[3][0],t[3][1],t[3][2],loc[0])
+			else:
+				cmds.move(t[3][0],t[3][1],t[3][2],loc[0],r=True,os=True)
+
+			
+
+		elif t[0]=='R':
+			if t[2][0]==t[2][1]==t[2]=='R':
+				cmds.rotate(t[3][0],t[3][1],t[3][2],loc[0],r=True,os=True)
+			elif t[2][0]==t[2][1]==t[2]=='A':
+				cmds.rotate(t[3][0],t[3][1],t[3][2],loc[0])
+			else:
+				cmds.rotate(t[3][0],t[3][1],t[3][2],loc[0],r=True,os=True)
+	
+	ret=[cmds.getAttr(loc[0]+'.translate')[0],cmds.getAttr(loc[0]+'.rotate')[0]]
+	cmds.delete(loc)
+	return ret
 
 
+def assign_shape_in_maya(scope):	
+	if scope.shape=='':
+		if scope.symbol!='':
+			if scope.nvtx!=[]:
+				newpoly=cmds.polyCreateFacet(name=scope.symbol, p=[tuple(v) for v in scope.nvtx] ,ch=False)
+			else:
+				newpoly=cmds.polyCreateFacet(name=scope.symbol, p=[(0.0, 0.0, 0.0), (1, 0.0, 0.0), (1,1,0.0),(0.0, 1, 0.0)] )
+			cmds.setAttr(newpoly[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
+			cmds.setAttr(newpoly[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])
+			cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
 
+	else:
+		print 'src shape in assign shape in maya: ',scope.shape
+		newpoly=cmds.duplicate([scope.shape])
+		#newpoly=cmds.polyCreateFacet( p=[(0.0, 0.0, 0.0), (1, 0.0, 0.0), (1,1,0.0),(0.0, 1, 0.0)] )
+		cmds.setAttr(newpoly[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
+		cmds.setAttr(newpoly[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])		
+		cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
+	cmds.setAttr(newpoly[0]+'.visibility',False)
+	print 'assign_shape_in_maya:',newpoly[0]
+	return newpoly[0]
+
+
+global gcurrentScope
+global gparentScope
 gcurrentScope=CScope()
 gparentScope=CScope()
 
@@ -615,8 +775,6 @@ def facade(rule):
 	myshape.evaluate()
 	myshape.assignShape()
 	return myshape
-	
 
 
-
-facade('/Users/cobranail/Documents/nailtoolkit/CityEngineLite/test4.txt')
+#facade('/Users/cobranail/Documents/nailtoolkit/CityEngineLite/test4.txt')
