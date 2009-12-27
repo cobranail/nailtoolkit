@@ -84,6 +84,11 @@ class CStructure:
 	subSymbols=[]
 	usingMayaSpace=False
 	inactiveSymbols=[]
+	groupOpStack=[]  
+	groupOp=False
+	groupOPDo=False
+	scopeHistory=[]
+
 	'''
 	def __init__(self):
 		self.notations=[]
@@ -95,6 +100,7 @@ class CStructure:
 		self.usingMayaSpace=False
 	'''
 	def evaluate(self):
+		print self.notations
 		for notation in self.notations:
 			
 			if len(notation)>0 :
@@ -110,7 +116,13 @@ class CStructure:
 			#print '----------------------------------'
 		for scope in self.symbols:
 			print 'Term:',scope.symbol,scope.shape
-		deactive_shape_in_maya(self.inactiveSymbols)
+		
+		#self.inactiveSymbols=[]
+		#for symbols in self.scopeHistory:
+		#	self.inactiveSymbols+=symbols
+		#deactive_shape_in_maya(self.inactiveSymbols)
+	
+		
 	def assignShape(self):
 		active_shape_in_maya(self.symbols)
 		#scale4render(self.symbols)
@@ -123,7 +135,7 @@ class CStructure:
 		param=[]
 		symbol=[]
 		scopeList=[]
-		Func=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','[',']','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset']
+		Func=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','[',']','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset','FCombine']
 		SymbolFunc=['Subdiv','Repeat','Comp','Roof']
 		SuccessorSymbol=['SUCCESSOR','PROB']
 		TransformFunc=['Translate','Rotate','Scale']
@@ -133,7 +145,6 @@ class CStructure:
 		repeatCount=1
 		cmdStack=[]
 		preCmd=[]
-		
 		
 		for CGAcmd in cmdList:
 			#print 'cmd is ',cmd
@@ -154,7 +165,9 @@ class CStructure:
 					param=tokenStream(CGAcmd[1],',')
 					p+=1
 				func = cmdStack[-1][1]
-				#print func,param
+				print func,param
+				if func not in Func:
+					print func,'not in Func set.'
 				if func in ['T','R']:
 					gcurrentScope.pushT(copy.deepcopy(parsingTRParam(func,param)))
 				elif func == 'S':
@@ -189,6 +202,8 @@ class CStructure:
 					pass
 				elif func == 'FootPrint':
 					scopeList=parsingFootPrintParam(param)
+					#for ss in scopeList:
+					#	print 'a gc.shape: ',ss.shape
 				elif func == 'Extrude':
 					parsingExtrudeParam(param)
 				elif func == 'FComp':
@@ -198,6 +213,12 @@ class CStructure:
 					parsingSetParam(param)
 				elif func == 'Offset':
 					parsingOffsetParam(param)
+				elif func == 'FCombine':
+					print 'FCombine in parsing.'
+					self.groupOp = True
+					if self.groupOpDo is True:
+						print 'FCombine is doing.'
+						parsingFCombineParam(self.groupOpStack,param)					
 				'''
 				print '---symbols scopeList---'
 				
@@ -243,6 +264,8 @@ class CStructure:
 				print 'Undefined Notation ',CGAcmd
 				return len(cmdList)
 			#print 'return at',p,cmdList[p]
+		#print 'returned.'
+		#print cmdList
 		return p
 	
 	
@@ -254,6 +277,11 @@ class CStructure:
 		cmdListLen=len(cmdList)
 		p=0
 		successors=[]
+		scopeStack=[]
+		#scope need to operate
+		self.groupOpStack=[]
+		self.groupOp=False
+		self.groupOpDo=False
 		while (p<cmdListLen):
 	
 			if (cmdList[p][0] is 'SUCCESSOR') :
@@ -271,26 +299,73 @@ class CStructure:
 		if slen==0:
 			self.symbols.append(defaultSymbol)
 			slen=len(self.symbols)
+		
+		'''
+				#this is the predecessor we need
+		'''
 		while i<slen:
-			#print 'predecessor:',self.predecessor
+			print 'symbol:',i,self.symbols[i].symbol,self.symbols[i].shape
 			if self.predecessor.symbol == self.symbols[i].symbol:
-				gcurrentScope = CScope(self.symbols[i])
-				self.predecessor = CScope(self.symbols[i])
-				gparentScope = CScope(self.symbols[i])
+				scopeStack.append(self.symbols.pop(i))
+			else:
+				i+=1
+			slen=len(self.symbols)
+			
+		self.scopeHistory.append([])	
+		self.inactiveSymbols+=copy.deepcopy(scopeStack)
+		
+		print '--------------stack--------------'
+		for scope in scopeStack:
+			scope.show()
+		print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+		symbolGroup=[]
+		
+		
+		#stacksize=len(scopeStack)
+		#while i<stacksize:
+			#scope=scopeStack[i]
+		for i,scope in enumerate(scopeStack):
+			if True:
+				gcurrentScope = CScope(scope)
+				print '===================='
+				gcurrentScope.show()
+				print '~~~~~~~~~~~~~~~~~~~~'
+				self.predecessor = CScope(scope)
+				gparentScope = CScope(scope)
 				#print 'SUCCESSOR start:'
 				r=random.random()
 				#print 'random ',r
 				cond=eval(notation[2])
-				#print 'notation',notation[0],'condition is',cond
+				print 'notation',notation[0],'condition is',cond
+				
 				if cond:
 					for successor in successors:
+					# test each possibility
 						if r>0:
 							if r-successor[2]>0:
 								r-=successor[2]			
 							else:
 								successorIN=cmdList[successor[0]:successor[1]]
-								#print 'successor in',successorIN
+								print 'successor in',successorIN
+								
+								print 'successor: ',i+1,'of ',len(scopeStack)
+								
+								if (self.groupOp is True) and i+1==len(scopeStack):
+									print 'op is true!'
+									self.groupOpDo = True
+									self.groupOpStack=copy.deepcopy(scopeStack)
+									#self.scopeHistory[-1]+=(copy.deepcopy(scopeStack))
+									self.subSymbols=[]
+									symbolGroup=[]
+																
+								
 								self.operate(successorIN,0)
+								
+								print '-----------successor scope: subSymbols----------'
+								for c in self.subSymbols:
+									print c.symbol,c.shape
+								
+								print '------------------------------------------------'
 								#ptr=successor[0]
 								#print 'choice:',successor
 								#print '---------start----------'
@@ -298,21 +373,31 @@ class CStructure:
 								#	ptr=self.operate(cmdList,ptr)
 									#ptr+=1
 								r-=successor[2]
-				
-					idx=i
-					self.inactiveSymbols.append(self.symbols.pop(idx))
-					if len(self.subSymbols) == 0:
-						self.subSymbols.append(copy.deepcopy(gcurrentScope))
-					self.symbols=self.symbols[:idx]+self.subSymbols+self.symbols[idx:]
-					#print self.predecessor.symbol,'have been replaced.'
+								#print 'successor finished.'
+					print 'scope: ',scope.show()
+					#self.inactiveSymbols.append(scope)
 					
-			slen=len(self.symbols)
-			sl=len(self.subSymbols)
-			if sl==0:
-				i+=1
-			else:
-				i+=sl
-			self.subSymbols=[]
+				#must outside of if segament
+				if len(self.subSymbols) == 0:
+					self.subSymbols.append(copy.deepcopy(gcurrentScope))
+				elif len(self.subSymbols) > 0:
+					self.scopeHistory[-1].append(copy.deepcopy(gcurrentScope))
+					
+				symbolGroup+=self.subSymbols
+				self.subSymbols=[]
+	
+
+		print '----------symbolGroup-----------'
+		for c in symbolGroup:
+			print c.symbol,c.shape
+		print '--------------------------------'
+					
+		self.symbols+=symbolGroup
+			#print self.predecessor.symbol,'have been replaced.'
+
+		#print 'parsing returned.'
+		pass
+		
 
 def parsingTRParam(t,param):
 	
@@ -366,16 +451,30 @@ def parsingTRParam(t,param):
 	
 def parsingSParam(param):
 	global gcurrentScope
+	
+	print 'gcurrentScope in parsingSParma Func:',gcurrentScope.show()
 	t='S'
 	m=len(param)
 	offset=0.0
+	snap=False
+	delSrcFace=False
 	if 'F' in param[0]:
+		#set offset
 		m=m-1
+	if 'S' in param[0]:
+		#snap new atom to snaps
+		m-=1
+		snap=True
+	if 'D' in param[0]:
+		#del source face
+		delSrcFace=True
+	
 	
 	axisid=0
 	pre_D=gcurrentScope.D
 	ev=0
 	if m == 2:
+		#scale in one axis
 		val=eval(param[1])
 		
 		if 'X' in  param[0]:
@@ -417,6 +516,7 @@ def parsingSParam(param):
 		#ev=gcurrentScope.size[axisid]
 			
 	elif m==3:
+		#scale in x,y,z
 		for i in range(0,3):
 			val=eval(param[i])
 			#print 'val',val,type(val)
@@ -437,7 +537,8 @@ def parsingSParam(param):
 		if is2D(gcurrentScope,'ANY'):
 			ts=cmds.getAttr(gcurrentScope.shape+'.scale')	
 			cmds.setAttr(gcurrentScope.shape+'.scale',1,1,1)
-			extrude_in_maya(gcurrentScope.shape,1,param)
+			newshape=extrude_in_maya(gcurrentScope.shape,1,param)
+			gcurrentScope.shape=newshape
 			cmds.setAttr(gcurrentScope.shape+'.scale',ts[0][0],ts[0][1],ts[0][2])
 
 def parsingSubdivParam(param):
@@ -490,6 +591,7 @@ def parsingSubdivParam(param):
 		T1[3]=[0,0,0]
 		#T2[3]=copy.copy(Ts)		
 		tmpscope=CScope(gcurrentScope)
+		tmpscope.shape=''
 		if type(val) is types.ListType:
 			tmpscope.size[axisid]=float(val[1])*rv
 		else:
@@ -556,6 +658,7 @@ def parsingRepeatParam(param):
 		for i in range(0,repeatCount):
 			T1[3]=[0,0,0]
 			tmpscope=CScope(gcurrentScope)
+			tmpscope.shape=''
 			T1[3][axisid]=s
 			#tmpscope.T=[]
 			tmpscope.pushT(T1)
@@ -577,6 +680,7 @@ def parsingRepeatParam(param):
 		for i in range(0,repeatCount):
 			T1[3]=[0,0,0]
 			tmpscope=CScope(gcurrentScope)
+			tmpscope.shape=''
 			T1[3][axisid]=s
 			#tmpscope.T=[]
 			tmpscope.pushT(T1)
@@ -605,6 +709,7 @@ def parsingFootPrintParam(param):
 	gcurrentScope.D=2
 	gcurrentScope.size=[1,0,1]
 	scopeList=[]
+	
 	t = ['T','O',['A','A','A'],[0,0,0]]
 	r = ['R','O',['A','A','A'],[0,0,0]]
 	for p in param:
@@ -619,6 +724,7 @@ def parsingFootPrintParam(param):
 		scope.orient=r[3]
 		scope.T=[]
 		scopeList.append(scope)
+	
 	#deactive_shape_in_maya(scopeList)
 	return scopeList
 
@@ -693,6 +799,9 @@ def parsingFCompParam(param):
 		deactive_shape_in_maya([gparentScope])
 		for i in xrange(len(scopeList)):
 			scopeList[i].shape=''
+		
+		clear_shape_in_maya([f[0][0] for f in faces])
+		
 	elif param[0] == 'topfaces' or param[0]=='bottomfaces':
 		faces=get_faces_in_maya(gparentScope,param[0])
 		for f in faces:
@@ -701,6 +810,9 @@ def parsingFCompParam(param):
 		deactive_shape_in_maya([gparentScope])
 		for i in xrange(len(scopeList)):
 			scopeList[i].shape=''
+		
+		clear_shape_in_maya([f[0][0] for f in faces])
+		
 	elif param[0] == 'topplanes':
 		pass		
 	elif param[0] == 'allfaces':
@@ -731,6 +843,15 @@ def parsingOffsetParam(param):
 	gcurrentScope.orient=copy.deepcopy(face[2])
 	gcurrentScope.size=copy.deepcopy(face[3])
 	gcurrentScope.nvtx=copy.deepcopy(face[4])
+
+def parsingFCombineParam(scopeStack,param):
+	global gcurrentScope
+	global gparentScope
+	inactiveShapes=[]
+	face=combine_face_in_maya(scopeStack,param)
+	print 'newface in parsingFCombine:',face
+	gcurrentScope=face_to_scope(face)
+	
 
 def face_to_scope(f):
 	global gcurrentScope

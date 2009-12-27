@@ -27,7 +27,7 @@ def parsingSuccessor(successor):
 	for c in successor[0]:
 		tb+=c
 	#print 'successor passed in:',tb,len(tb)
-	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset']
+	KeyWords=['Subdiv','Repeat','Comp','Roof','Snap','SnapLines','T','R','S','I','Extrude','Load','FootPrint','FComp','Set','Offset','FCombine']
 	cmdList=[]
 	expect=''
 	token=''
@@ -286,8 +286,7 @@ def parsingNotation(line):
 							cmd.append(['PROB',s.pop(0)])
 					nota.append(cmd)
 					cmd=[]
-	
-	#print nota				
+	#print nota					
 	return nota
 
 
