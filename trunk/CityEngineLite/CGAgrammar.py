@@ -114,8 +114,9 @@ class CStructure:
 					#print '~~~~',shape
 					self.symbols[i].shape=shape
 			#print '----------------------------------'
-		for scope in self.symbols:
-			print 'Term:',scope.symbol,scope.shape
+			
+		#for scope in self.symbols:
+		#	print 'Term:',scope.symbol,scope.shape
 		
 		#self.inactiveSymbols=[]
 		#for symbols in self.scopeHistory:
@@ -165,9 +166,7 @@ class CStructure:
 					param=tokenStream(CGAcmd[1],',')
 					p+=1
 				func = cmdStack[-1][1]
-				print func,param
-				if func not in Func:
-					print func,'not in Func set.'
+				#print func,param
 				if func in ['T','R']:
 					gcurrentScope.pushT(copy.deepcopy(parsingTRParam(func,param)))
 				elif func == 'S':
@@ -214,10 +213,10 @@ class CStructure:
 				elif func == 'Offset':
 					parsingOffsetParam(param)
 				elif func == 'FCombine':
-					print 'FCombine in parsing.'
+					#print 'FCombine in parsing.'
 					self.groupOp = True
 					if self.groupOpDo is True:
-						print 'FCombine is doing.'
+						#print 'FCombine is doing.'
 						parsingFCombineParam(self.groupOpStack,param)					
 				'''
 				print '---symbols scopeList---'
@@ -304,7 +303,7 @@ class CStructure:
 				#this is the predecessor we need
 		'''
 		while i<slen:
-			print 'symbol:',i,self.symbols[i].symbol,self.symbols[i].shape
+			#print 'symbol:',i,self.symbols[i].symbol,self.symbols[i].shape
 			if self.predecessor.symbol == self.symbols[i].symbol:
 				scopeStack.append(self.symbols.pop(i))
 			else:
@@ -313,11 +312,12 @@ class CStructure:
 			
 		self.scopeHistory.append([])	
 		self.inactiveSymbols+=copy.deepcopy(scopeStack)
-		
+		'''
 		print '--------------stack--------------'
 		for scope in scopeStack:
 			scope.show()
 		print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+		'''
 		symbolGroup=[]
 		
 		
@@ -327,16 +327,13 @@ class CStructure:
 		for i,scope in enumerate(scopeStack):
 			if True:
 				gcurrentScope = CScope(scope)
-				print '===================='
-				gcurrentScope.show()
-				print '~~~~~~~~~~~~~~~~~~~~'
 				self.predecessor = CScope(scope)
 				gparentScope = CScope(scope)
 				#print 'SUCCESSOR start:'
 				r=random.random()
 				#print 'random ',r
 				cond=eval(notation[2])
-				print 'notation',notation[0],'condition is',cond
+				#print 'notation',notation[0],'condition is',cond
 				
 				if cond:
 					for successor in successors:
@@ -346,12 +343,12 @@ class CStructure:
 								r-=successor[2]			
 							else:
 								successorIN=cmdList[successor[0]:successor[1]]
-								print 'successor in',successorIN
+								#print 'successor in',successorIN
 								
-								print 'successor: ',i+1,'of ',len(scopeStack)
+								#print 'successor: ',i+1,'of ',len(scopeStack)
 								
 								if (self.groupOp is True) and i+1==len(scopeStack):
-									print 'op is true!'
+									#print 'op is true!'
 									self.groupOpDo = True
 									self.groupOpStack=copy.deepcopy(scopeStack)
 									#self.scopeHistory[-1]+=(copy.deepcopy(scopeStack))
@@ -360,12 +357,13 @@ class CStructure:
 																
 								
 								self.operate(successorIN,0)
-								
+								'''
 								print '-----------successor scope: subSymbols----------'
 								for c in self.subSymbols:
 									print c.symbol,c.shape
 								
 								print '------------------------------------------------'
+								'''
 								#ptr=successor[0]
 								#print 'choice:',successor
 								#print '---------start----------'
@@ -374,7 +372,7 @@ class CStructure:
 									#ptr+=1
 								r-=successor[2]
 								#print 'successor finished.'
-					print 'scope: ',scope.show()
+					#print 'scope: ',scope.show()
 					#self.inactiveSymbols.append(scope)
 					
 				#must outside of if segament
@@ -386,12 +384,12 @@ class CStructure:
 				symbolGroup+=self.subSymbols
 				self.subSymbols=[]
 	
-
+		'''
 		print '----------symbolGroup-----------'
 		for c in symbolGroup:
 			print c.symbol,c.shape
 		print '--------------------------------'
-					
+		'''			
 		self.symbols+=symbolGroup
 			#print self.predecessor.symbol,'have been replaced.'
 
@@ -452,7 +450,7 @@ def parsingTRParam(t,param):
 def parsingSParam(param):
 	global gcurrentScope
 	
-	print 'gcurrentScope in parsingSParma Func:',gcurrentScope.show()
+	#print 'gcurrentScope in parsingSParma Func:',gcurrentScope.show()
 	t='S'
 	m=len(param)
 	offset=0.0
@@ -684,7 +682,7 @@ def parsingRepeatParam(param):
 			T1[3][axisid]=s
 			#tmpscope.T=[]
 			tmpscope.pushT(T1)
-			print tmpscope.T
+			#print tmpscope.T
 			tmpscope.size[axisid]=scope_sx/repeatCount
 			s+=tmpscope.size[axisid]
 			#tmpscope.show()
@@ -849,7 +847,7 @@ def parsingFCombineParam(scopeStack,param):
 	global gparentScope
 	inactiveShapes=[]
 	face=combine_face_in_maya(scopeStack,param)
-	print 'newface in parsingFCombine:',face
+	#print 'newface in parsingFCombine:',face
 	gcurrentScope=face_to_scope(face)
 	
 

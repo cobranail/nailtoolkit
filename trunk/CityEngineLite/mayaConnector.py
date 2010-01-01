@@ -1,3 +1,12 @@
+def getvtx_edge(polyedge):
+	vss=cmds.polyInfo(polyedge,ev=True)[0].split()[2:]
+	m=polyedge.split('.')[0]
+	vtxc=[]
+	for v in vss:
+		if v!='Hard':
+			vtxc.append(cmds.xform(m+'.vtx['+v+']',q=True,ws=True,a=True,t=True))
+	return vtxc
+
 def getvtx(polyface):
 	vss=cmds.polyInfo(polyface,fv=True)[0].split()[2:]
 	m=polyface.split('.')[0]
@@ -214,7 +223,7 @@ def new_sideface(vtx,fn):
 	rp=cmds.xform(newface[0]+'.vtx[0]',q=True,ws=True,a=True,t=True)
 	
 	cmds.setAttr(newface[0]+'.translate',vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2])
-	print 'new side face: ',newface
+	#print 'new side face: ',newface
 	return [newface,[vtx[0][0]-rp[0],vtx[0][1]-rp[1],vtx[0][2]-rp[2]],[r[1],r[0],0],[xl,yl,1],vtx3]
 
 def new_topface(vtx,fn):	
@@ -433,7 +442,7 @@ def get_faces_in_maya(scope,type):
 				vtx=getvtx(scope.shape+'.f['+str(i)+']')
 				newpoly=new_sideface(vtx,fn4)
 				faces.append(newpoly)
-		print 'faces in get faces func:',faces
+		#print 'faces in get faces func:',faces
 	elif type=='topfaces':
 		for i in xrange(faceCount):
 			fns=cmds.polyInfo(scope.shape+'.f['+str(i)+']',fn=True)
@@ -494,9 +503,9 @@ def extrude_in_maya(shape,d,param):
 def deactive_shape_in_maya(scopes):
 	for scope in scopes:
 		if scope.shape!=''and cmds.objExists(scope.shape):
-			print 'deactive_shape:',scope.shape
+			#print 'deactive_shape:',scope.shape
 			cmds.setAttr(scope.shape+'.visibility', False)
-			print 'newstate:',cmds.getAttr(scope.shape+'.visibility')
+			#print 'newstate:',cmds.getAttr(scope.shape+'.visibility')
 
 def active_shape_in_maya(scopes):
 	for scope in scopes:
@@ -526,7 +535,7 @@ def combine_face_in_maya(scopeStack,param):
 	for scope in scopeStack:
 		if cmds.objExists(scope.shape) :
 			mesh.append(scope.shape)
-	print 'shapeStack in combine(groupOpStack):',mesh
+	#print 'shapeStack in combine(groupOpStack):',mesh
 	newname=scopeStack[0].symbol+'New'
 	
 	poly4unite=cmds.duplicate(mesh)
@@ -659,7 +668,48 @@ def reStyle2(raw):
 		rvSet.pop()
 	return [int(i) for i in rvSet]
 
+def ef_intersection_in_maya(e,f):
+	evtx=getvtx_edge(e)
+	fvtx=getvtx(f)
+	ips=polyEdgeIntersection(fvtx,evtx)
+	
+	if ips!=[]:
+		cmds.spaceLocator(p=tuple(ips[0]))
+	return ips
+	
+def ff_intersection_in_maya(p1,p2):
+	edgeCount1=cmds.polyEvaluate( [p1], e=True )
+	edgeCount2=cmds.polyEvaluate( [p2], e=True )
+	ips=[]
+	for i in xrange(edgeCount1):
+	#test each face of the object
+		f=(p2+'.f[0]')
+		e=fullName(p1,'e',i)
+		evtx=getvtx_edge(e)
+		fvtx=getvtx(f)
+		ip=polyEdgeIntersection(fvtx,evtx)
+		if len(ip)>0:
+			print 'p2 f intersect with p1 edge',i
+		ips+=ip
+		
+	for i in xrange(edgeCount2):
+	#test each face of the object
+		f=(p1+'.f[0]')
+		e=fullName(p2,'e',i)
+		evtx=getvtx_edge(e)
+		fvtx=getvtx(f)
+		ip=polyEdgeIntersection(fvtx,evtx)	
+		if len(ip)>0:
+			print 'p1 f intersect with p2 edge',i
+		ips+=ip		
+		#if ips!=[]:
+		#	cmds.spaceLocator(p=tuple(ips[0]))
+	return ips
 
+def intersectionCurve(p1,p2):
+	ip=ff_intersection_in_maya(p1,p2)
+	if len(ip)>1:
+		cmds.curve(d=1,p=ip)
 
 '''
 def eval_T_in_maya(scope):
@@ -739,14 +789,14 @@ def assign_shape_in_maya(scope):
 			cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
 
 	else:
-		print 'src shape in assign shape in maya: ',scope.shape
+		#print 'src shape in assign shape in maya: ',scope.shape
 		newpoly=cmds.duplicate([scope.shape])
 		#newpoly=cmds.polyCreateFacet( p=[(0.0, 0.0, 0.0), (1, 0.0, 0.0), (1,1,0.0),(0.0, 1, 0.0)] )
 		cmds.setAttr(newpoly[0]+'.translate',scope.position[0],scope.position[1],scope.position[2])
 		cmds.setAttr(newpoly[0]+'.rotate',scope.orient[0],scope.orient[1],scope.orient[2])		
 		cmds.setAttr(newpoly[0]+'.scale',scope.size[0],scope.size[1],scope.size[2])
 	cmds.setAttr(newpoly[0]+'.visibility',False)
-	print 'assign_shape_in_maya:',newpoly[0]
+	#print 'assign_shape_in_maya:',newpoly[0]
 	return newpoly[0]
 
 
