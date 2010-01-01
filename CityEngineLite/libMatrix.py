@@ -1,5 +1,4 @@
 def det(x):
-	'''求行列式'''
 	row=0
 	column=0
 	row=len(x)
@@ -22,7 +21,6 @@ def det(x):
 	return sum
 
 def rsn(a):
-	'''求逆序数'''
 	sum=0
 	for i,c in enumerate(a):
 		for d in a[:i]:
@@ -32,28 +30,20 @@ def rsn(a):
 
 	
 def emu(a):
-	'''	求a的全排列 	'''
 	if len(a)>1:
 		el=[]
 		for i,c in enumerate(a):
 			b=a[:]
 			b.pop(i)
-			''' 固定一个值，对其它的进行全排列 '''
 			et=emu(b)
 			for e in et:
 				el.append([c]+e)
-				''' e 是 [[],[]]这种形式	'''
 		return el
 	elif len(a)==1:
-		'''
-		当len a>1 时 return 的是[[],[]]这种形式
-		当len a=1 时，也需要用这种形式
-		'''
 		return [a]		
 
 
 def aac(a,i,j):
-	'''求代数余子式'''
 	b=a[:]
 	b.pop(i)
 	m=[]
@@ -62,6 +52,10 @@ def aac(a,i,j):
 		d.pop(j)
 		m.append(d)
 	return (-1)**(i+j)*det(m)
+	
+def matrix_mutil(a,b):
+	return [[sum(i*j for i, j in zip(row, col)) for col in zip(*b)] for row in a]
+
 
 def invMat(x):
 	m=[]
@@ -83,8 +77,44 @@ def invMat(x):
 		return m
 	else:
 		print 'det is 0.'
+		print 'x',x
 
+def isAllZeroes(a):
+	for c in a:
+		if c!=0:
+			return False
+	return True
 
-
-
+def linearEqSolver(m):
+	a=[x[:-1] for x in m]
+	b=[[x[-1]] for x in m]
+	zero_column=[]
+	zero_row=[]
+	
+	d=len(a)
+	
+	for i,c in enumerate(a):
+		if isAllZeroes(c):
+			zero_row.append(i)
+	for i,c in enumerate(a[0]):
+		if isAllZeroes([f[i] for f in a]):
+			zero_column.append(i)
+	zero_column.reverse()
+	zero_row.reverse()
+	
+	for i in zero_row:
+		a.pop(i)
+		b.pop(i)
+	for r in a:
+		for j in zero_column:
+			r.pop(j)
+	
+	if det(a)!=0:
+		p = matrix_mutil(invMat(a),b)
+		zero_column.reverse()
+		for c in zero_column:
+			p.insert(c,[0])
+		return p
+			
+	return False
 
